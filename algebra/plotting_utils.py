@@ -22,6 +22,14 @@ class LineDict(TypedDict):
     points: Optional[list[PointDict]]
 
 
+class FillDict(TypedDict):
+    x: ndarray[float]  # X range for filling
+    y1: ndarray[float]  # Y values for the lower boundary
+    y2: ndarray[float]  # Y values for the upper boundary
+    where: ndarray[bool]  # Condition for filling
+    color: Optional[str]  # Color for filling
+
+
 class LimitDict(TypedDict):
     x: tuple[float, float]
     y: tuple[float, float]
