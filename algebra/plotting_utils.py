@@ -59,3 +59,55 @@ def setup_plot(limits: LimitDict = None) -> None:
         plt.ylim(-10, 10)
         plt.gca().set_xticks(np.arange(-10, 11, 5), minor=False)
         plt.gca().set_yticks(np.arange(-10, 11, 5), minor=False)
+
+
+def get_slope_intercept_points(slope: float, intercept=0):
+    x = np.linspace(-10, 10, 100)
+    # Calculate y values based on the equation y = mx + b
+    y = slope * x + intercept
+    return {'x': x, 'y': y}
+
+
+def plot_lines(title: str, lines: list[LineDict], fills: list[FillDict] = None, limits: LimitDict = None):
+
+    plt.figure(figsize=(6, 6))
+
+    for line in lines:
+        x = line['x']
+        y = line['y']
+        line_color = line.get('color', 'blue')
+        linestyle = line.get('linestyle', '-')
+        label = line.get('label', None)
+        plt.plot(x, y, color=line_color, linestyle=linestyle, label=label)
+
+        # Plot points
+        points = line.get('points', [])
+        for point in points:
+            x = point['x']
+            y = point['y']
+            equal = point['equal']
+            point_color = line_color if equal else 'white'
+            marker_edge_color = None if equal else line_color
+            plt.plot(x, y, 'o', color=point_color, markersize=5, markeredgewidth=1, markeredgecolor=marker_edge_color)
+
+    # Plot fills
+    if fills is not None:
+        for fill in fills:
+            x = fill['x']
+            y1 = fill['y1']
+            y2 = fill['y2']
+            where = fill['where']
+            fill_color = fill.get('color', 'lightblue')
+            plt.fill_between(x, y1, y2, where, color=fill_color, alpha=0.5)
+
+    setup_plot(limits)
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.title(title)
+
+    # Check if any line has a label and add legend if true
+    has_label = any(map(lambda line: isinstance(line.get('label'), str), lines))
+    if has_label:
+        plt.legend()
+
+    plt.show()
