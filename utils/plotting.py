@@ -10,7 +10,8 @@ from typing import TypedDict, Optional
 class PointDict(TypedDict):
     x: float
     y: float
-    equal: bool
+    equal: Optional[bool]
+    label: Optional[str]
 
 
 class LineDict(TypedDict):
@@ -33,6 +34,9 @@ class FillDict(TypedDict):
 class LimitDict(TypedDict):
     x: tuple[float, float]
     y: tuple[float, float]
+
+
+# Functions
 
 
 def setup_plot(limits: LimitDict = None) -> None:
@@ -61,13 +65,6 @@ def setup_plot(limits: LimitDict = None) -> None:
         plt.gca().set_yticks(np.arange(-10, 11, 5), minor=False)
 
 
-def get_slope_intercept_points(slope: float, intercept=0):
-    x = np.linspace(-10, 10, 100)
-    # Calculate y values based on the equation y = mx + b
-    y = slope * x + intercept
-    return {'x': x, 'y': y}
-
-
 def plot_lines(title: str, lines: list[LineDict], fills: list[FillDict] = None, limits: LimitDict = None):
 
     plt.figure(figsize=(6, 6))
@@ -85,10 +82,14 @@ def plot_lines(title: str, lines: list[LineDict], fills: list[FillDict] = None, 
         for point in points:
             x = point['x']
             y = point['y']
-            equal = point['equal']
+            equal = point['equal'] if 'equal' in point else True
+            label = point.get('label', None)
             point_color = line_color if equal else 'white'
             marker_edge_color = None if equal else line_color
             plt.plot(x, y, 'o', color=point_color, markersize=5, markeredgewidth=1, markeredgecolor=marker_edge_color)
+            # Annotate each point with a label
+            if label:
+                plt.annotate(label, xy=(x, y), xytext=(5, 5), textcoords='offset points')
 
     # Plot fills
     if fills is not None:
@@ -111,3 +112,10 @@ def plot_lines(title: str, lines: list[LineDict], fills: list[FillDict] = None, 
         plt.legend()
 
     plt.show()
+
+
+def get_slope_intercept_points(slope: float, intercept=0):
+    x = np.linspace(-10, 10, 100)
+    # Calculate y values based on the equation y = mx + b
+    y = slope * x + intercept
+    return {'x': x, 'y': y}
