@@ -4,7 +4,8 @@ from sympy import sqrt
 def get_length_between_points(p1: list[float], p2: list[float], symbolic=False) -> float:
     """
     Get the length between two points in any number of dimensions.
-    
+    Formula: sqrt((x2 - x1)^2 + (y2 - y1)^2 + ... + (n2 - n1)^2)
+
     Args:
         p1 (list[float]): The first point.
         p2 (list[float]): The second point.
@@ -30,6 +31,7 @@ def get_length_between_points(p1: list[float], p2: list[float], symbolic=False) 
 def get_midpoint_between_points(p1: list[float], p2: list[float]) -> list[float]:
     """
     Get the midpoint between two points in any number of dimensions.
+    Formula: ((x1 + x2) / 2, (y1 + y2) / 2, ..., (n1 + n2) / 2)
     
     Args:
         p1 (list[float]): The first point.
