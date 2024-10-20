@@ -49,3 +49,29 @@ def get_midpoint_between_points(p1: list[float], p2: list[float]) -> list[float]
         raise ValueError("The points must have at least 2 dimensions.")
 
     return tuple((p1[i] + p2[i]) / 2 for i in range(len(p1)))
+
+
+def get_slope_between_points(p1: list[float], p2: list[float], symbolic=False) -> float:
+    """
+    Get the slope of the line passing through two points.
+    Formula: (y2 - y1) / (x2 - x1)
+    
+    Args:
+        p1 (list[float]): The first point.
+        p2 (list[float]): The second point.
+    
+    Returns:
+        float: The slope of the line passing through the two points.
+    
+    Raises:
+        ValueError: If the points do not have the same length or if the length is less than 2.
+    """
+    if len(p1) != len(p2):
+        raise ValueError("The points must have the same number of dimensions.")
+    if len(p1) < 2:
+        raise ValueError("The points must have at least 2 dimensions.")
+
+    if symbolic:
+        return (p2[1] - p1[1]) / (p2[0] - p1[0])
+    else:
+        return (p2[1] - p1[1]) / (p2[0] - p1[0])
