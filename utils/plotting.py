@@ -139,21 +139,22 @@ class PolygonDict(TypedDict):
 POINT_TEXT_OFFSET = 0.3  # Adjust this value to shift horizontally
 
 
-def plot_geometry_lines(title: str, lines: list[GeometryLineDict], polygons: list[PolygonDict] = None, limits: LimitDict = None):
+def plot_geometry(title: str, lines: list[GeometryLineDict] = None, polygons: list[PolygonDict] = None, limits: LimitDict = None):
     plt.figure(figsize=(6, 6))
     setup_plot(limits)
 
-    for line in lines:
-        x = line['x']
-        y = line['y']
-        line_color = line.get('color', 'blue')
-        labels = line.get('labels', None)
-        plt.plot(x, y, 'o-', color=line_color, markersize=5, label=labels)
+    if lines is not None:
+        for line in lines:
+            x = line['x']
+            y = line['y']
+            line_color = line.get('color', 'blue')
+            labels = line.get('labels', None)
+            plt.plot(x, y, 'o-', color=line_color, markersize=5, label=labels)
 
-        # Plot point texts
-        point_texts = line.get('points', [])
-        for i, text in enumerate(point_texts):
-            plt.text(x[i] + POINT_TEXT_OFFSET, y[i] + POINT_TEXT_OFFSET, text)
+            # Plot point texts
+            point_texts = line.get('points', [])
+            for i, text in enumerate(point_texts):
+                plt.text(x[i] + POINT_TEXT_OFFSET, y[i] + POINT_TEXT_OFFSET, text)
 
     if polygons is not None:
         for polygon in polygons:
@@ -164,7 +165,11 @@ def plot_geometry_lines(title: str, lines: list[GeometryLineDict], polygons: lis
     plt.title(title)
 
     # Check if any line has a label and add legend if true
-    has_label = any(map(lambda line: isinstance(line.get('label'), str), lines))
+    has_label = False  # Initialize has_label to a default value
+
+    if lines is not None:
+        has_label = any(map(lambda line: isinstance(line.get('label'), str), lines))
+
     if has_label:
         plt.legend()
 
