@@ -10,7 +10,8 @@ from typing import TypedDict, Optional
 class PointDict(TypedDict):
     x: float
     y: float
-    equal: bool
+    equal: Optional[bool]
+    label: Optional[str]
 
 
 class LineDict(TypedDict):
@@ -22,7 +23,7 @@ class LineDict(TypedDict):
     points: Optional[list[PointDict]]
 
 
-class FillDict(TypedDict):
+class FillBetweenDict(TypedDict):
     x: ndarray[float]  # X range for filling
     y1: ndarray[float]  # Y values for the lower boundary
     y2: ndarray[float]  # Y values for the upper boundary
@@ -33,6 +34,9 @@ class FillDict(TypedDict):
 class LimitDict(TypedDict):
     x: tuple[float, float]
     y: tuple[float, float]
+
+
+# Functions
 
 
 def setup_plot(limits: LimitDict = None) -> None:
@@ -61,16 +65,9 @@ def setup_plot(limits: LimitDict = None) -> None:
         plt.gca().set_yticks(np.arange(-10, 11, 5), minor=False)
 
 
-def get_slope_intercept_points(slope: float, intercept=0):
-    x = np.linspace(-10, 10, 100)
-    # Calculate y values based on the equation y = mx + b
-    y = slope * x + intercept
-    return {'x': x, 'y': y}
-
-
-def plot_lines(title: str, lines: list[LineDict], fills: list[FillDict] = None, limits: LimitDict = None):
-
+def plot_lines(title: str, lines: list[LineDict], fills: list[FillBetweenDict] = None, limits: LimitDict = None):
     plt.figure(figsize=(6, 6))
+    setup_plot(limits)
 
     for line in lines:
         x = line['x']
@@ -85,10 +82,14 @@ def plot_lines(title: str, lines: list[LineDict], fills: list[FillDict] = None, 
         for point in points:
             x = point['x']
             y = point['y']
-            equal = point['equal']
+            equal = point['equal'] if 'equal' in point else True
+            label = point.get('label', None)
             point_color = line_color if equal else 'white'
             marker_edge_color = None if equal else line_color
             plt.plot(x, y, 'o', color=point_color, markersize=5, markeredgewidth=1, markeredgecolor=marker_edge_color)
+            # Annotate each point with a label
+            if label:
+                plt.annotate(label, xy=(x, y), xytext=(5, 5), textcoords='offset points')
 
     # Plot fills
     if fills is not None:
@@ -100,7 +101,6 @@ def plot_lines(title: str, lines: list[LineDict], fills: list[FillDict] = None, 
             fill_color = fill.get('color', 'lightblue')
             plt.fill_between(x, y1, y2, where, color=fill_color, alpha=0.5)
 
-    setup_plot(limits)
     plt.xlabel('x')
     plt.ylabel('y', rotation=0)
     plt.title(title)
@@ -111,3 +111,85 @@ def plot_lines(title: str, lines: list[LineDict], fills: list[FillDict] = None, 
         plt.legend()
 
     plt.show()
+
+
+def get_slope_intercept_points(slope: float, intercept=0):
+    x = np.linspace(-10, 10, 100)
+    # Calculate y values based on the equation y = mx + b
+    y = slope * x + intercept
+    return {'x': x, 'y': y}
+
+
+class GeometryLineDict(TypedDict):
+    x: ndarray[float]
+    y: ndarray[float]
+    color: Optional[str]
+    points: Optional[list[str]]
+    labels: Optional[str]
+
+
+class PolygonDict(TypedDict):
+    x: ndarray[float]
+    y: ndarray[float]
+    points: list[str]
+    color: Optional[str]
+    label: Optional[str]
+
+
+POINT_TEXT_OFFSET = 0.3  # Adjust this value to shift horizontally
+
+
+def plot_geometry(title: str, lines: list[GeometryLineDict] = None, polygons: list[PolygonDict] = None, limits: LimitDict = None):
+    plt.figure(figsize=(6, 6))
+    setup_plot(limits)
+
+    if lines is not None:
+        for line in lines:
+            x = line['x']
+            y = line['y']
+            line_color = line.get('color', 'blue')
+            labels = line.get('labels', None)
+            plt.plot(x, y, 'o-', color=line_color, markersize=5, label=labels)
+
+            # Plot point texts
+            point_texts = line.get('points', [])
+            for i, text in enumerate(point_texts):
+                plt.text(x[i] + POINT_TEXT_OFFSET, y[i] + POINT_TEXT_OFFSET, text)
+
+    if polygons is not None:
+        for polygon in polygons:
+            add_polygon(polygon)
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.title(title)
+
+    # Check if any line has a label and add legend if true
+    has_label = False  # Initialize has_label to a default value
+
+    if lines is not None:
+        has_label = any(map(lambda line: isinstance(line.get('label'), str), lines))
+
+    if has_label:
+        plt.legend()
+
+    plt.show()
+
+
+def add_polygon(polygon: PolygonDict):
+    x = np.append(polygon['x'], polygon['x'][0])
+    y = np.append(polygon['y'], polygon['y'][0])
+    points = polygon['points']
+    line_color = polygon.get('color', 'blue')
+    fill_color = polygon.get('color', 'lightblue')
+    label = polygon.get('label', None)
+
+    # Plot the polygon edges
+    plt.plot(x, y, 'o-', color=line_color, markersize=5)
+
+    # Plot point texts
+    for i, txt in enumerate(points):
+        plt.text(x[i] + POINT_TEXT_OFFSET, y[i] + POINT_TEXT_OFFSET, txt, fontsize=12)
+
+    # Fill the polygon
+    plt.fill(x, y, color=fill_color, alpha=0.5, label=label)
