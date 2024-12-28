@@ -67,13 +67,31 @@ def DMS_to_degrees(DMS: Tuple[int, int, float]) -> float:
     return degrees
 
 
+def print_coterminal_angle(angle: float):
+    remain = angle % 360
+    rounds = angle // 360
+    print(f'The angle {angle} is equivalent to {remain} after {rounds} full rotations.')
+
+
 def print_coterminal_radian(radian: any):
     remain = radian % (sp.pi * 2)
     rounds = radian // (sp.pi * 2)
     print(f'The angle {radian} is equivalent to {remain} after {rounds} full rotations.')
 
 
-def print_coterminal_angle(angle: float):
-    remain = angle % 360
-    rounds = angle // 360
-    print(f'The angle {angle} is equivalent to {remain} after {rounds} full rotations.')
+def find_coterminal_angle_in_range(angle: float, bounds: Tuple[float, float]):
+    lower_bound, upper_bound = bounds
+    while angle < lower_bound:
+        angle += 360
+    while angle > upper_bound:
+        angle -= 360
+    return angle
+
+
+def find_coterminal_radian_in_range(angle: float, bounds: Tuple[float, float]):
+    lower_bound, upper_bound = bounds
+    while angle < lower_bound:
+        angle += 2 * sp.pi
+    while angle > upper_bound:
+        angle -= 2 * sp.pi
+    return angle
