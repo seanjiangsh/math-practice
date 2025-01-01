@@ -67,16 +67,31 @@ def DMS_to_degrees(DMS: Tuple[int, int, float]) -> float:
     return degrees
 
 
-def print_coterminal_angle(angle: float):
+def radian_to_degrees(radian: any) -> float:
+    return radian * (180 / sp.pi)
+
+
+def find_coterminal_angle(angle: float):
     remain = angle % 360
     rounds = angle // 360
+    return remain, rounds
+
+
+def print_coterminal_angle(angle: float):
+    remain, rounds = find_coterminal_angle(angle)
     print(f'The angle {angle} is equivalent to {remain} after {rounds} full rotations.')
 
 
-def print_coterminal_radian(radian: any):
+def find_coterminal_radian(radian: any):
     remain = radian % (sp.pi * 2)
     rounds = radian // (sp.pi * 2)
-    print(f'The angle {radian} is equivalent to {remain} after {rounds} full rotations.')
+    degrees = radian_to_degrees(remain)
+    return remain, rounds, degrees
+
+
+def print_coterminal_radian(radian: any):
+    remain, rounds, degrees = find_coterminal_radian(radian)
+    print(f'The angle {radian} is equivalent to {remain} ({degrees} degrees) after {rounds} full rotations.')
 
 
 def find_coterminal_angle_in_range(angle: float, bounds: Tuple[float, float]):
@@ -95,3 +110,41 @@ def find_coterminal_radian_in_range(angle: float, bounds: Tuple[float, float]):
     while angle > upper_bound:
         angle -= 2 * sp.pi
     return angle
+
+
+def find_reference_angle(angle: float):
+    angle = find_coterminal_angle(angle)[0]
+    # Quadrant 1
+    if 0 <= angle <= 90:
+        return angle
+    # Quadrant 2
+    elif 90 < angle <= 180:
+        return 180 - angle
+    # Quadrant 3
+    elif 180 < angle <= 270:
+        return angle - 180
+    # Quadrant 4
+    elif 270 < angle <= 360:
+        return 360 - angle
+    # Angle must be in the range of 0 to 360, so this should never happen
+    else:
+        raise ValueError('Angle must be in the range of 0 to 360')
+
+
+def find_reference_radian(radian: any):
+    radian = find_coterminal_radian(radian)[0]
+    # Quadrant 1
+    if 0 <= radian <= sp.pi / 2:
+        return radian
+    # Quadrant 2
+    elif sp.pi / 2 < radian <= sp.pi:
+        return sp.pi - radian
+    # Quadrant 3
+    elif sp.pi < radian <= 3 * sp.pi / 2:
+        return radian - sp.pi
+    # Quadrant 4
+    elif 3 * sp.pi / 2 < radian <= 2 * sp.pi:
+        return 2 * sp.pi - radian
+    # Radian must be in the range of 0 to 2pi, so this should never happen
+    else:
+        raise ValueError('Radian must be in the range of 0 to 2pi')
