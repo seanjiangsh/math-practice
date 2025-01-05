@@ -2,6 +2,8 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+import sympy as sp
+import math
 
 from numpy import ndarray
 from typing import TypedDict, Optional
@@ -193,3 +195,39 @@ def add_polygon(polygon: PolygonDict):
 
     # Fill the polygon
     plt.fill(x, y, color=fill_color, alpha=0.5, label=label)
+
+
+def plot_radian_in_unit_circle(radian: float, title: str):
+    plt.figure(figsize=(6, 6))
+
+    # Create a unit circle
+    theta = np.linspace(0, 2 * np.pi, 100)
+    x = np.cos(theta)
+    y = np.sin(theta)
+
+    # Plot the unit circle
+    plt.plot(x, y)
+
+    # Plot the angle
+    x_angle = [0, np.cos(radian)]
+    y_angle = [0, np.sin(radian)]
+    plt.plot(x_angle, y_angle, label=f'Angle {radian} rad', color='red')
+
+    # Plot the angle arc
+    arc = np.linspace(0, radian, 100)
+    x_arc = np.cos(arc)
+    y_arc = np.sin(arc)
+    plt.plot(x_arc, y_arc, color='red', linestyle='dotted')
+
+    # Set equal scaling
+    plt.axis('equal')
+
+    # Add labels and legend
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+
+    # Add title
+    plt.title(title)
+
+    # Show the plot
+    plt.show()
