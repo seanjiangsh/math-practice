@@ -148,3 +148,39 @@ def find_reference_radian(radian: any):
     # Radian must be in the range of 0 to 2pi, so this should never happen
     else:
         raise ValueError('Radian must be in the range of 0 to 2pi')
+
+
+def list_coterminal_angles_in_degrees(degree: float, n=10):
+    angles = []
+    for i in range(-n, n):
+        angles.append(degree + i * 360)
+    return angles
+
+
+def list_coterminal_angles_in_radians(radian: any, n=10):
+    angles = []
+    for i in range(-n, n):
+        angles.append(radian + i * 2 * sp.pi)
+    return angles
+
+
+def get_trig_functions_from_point(point: Tuple[float, float], print_to_output=True):
+    x, y = point
+    r = sp.sqrt(x**2 + y**2)
+    sin = y / r
+    cos = x / r
+    tan = y / x
+    csc = 1 / sin
+    sec = 1 / cos
+    cot = 1 / tan
+
+    if print_to_output:
+        print(f'r = {sp.nsimplify(r)}')
+        print(f'sin = {sp.nsimplify(sin)}')
+        print(f'cos = {sp.nsimplify(cos)}')
+        print(f'tan = {sp.nsimplify(tan)}')
+        print(f'csc = {sp.nsimplify(csc)}')
+        print(f'sec = {sp.nsimplify(sec)}')
+        print(f'cot = {sp.nsimplify(cot)}')
+
+    return r, sin, cos, tan, csc, sec, cot
