@@ -68,103 +68,156 @@ def DMS_to_degrees(DMS: Tuple[int, int, float]) -> float:
 
 
 def radian_to_degrees(radian: any) -> float:
+    """
+    Convert an angle in radians to degrees.
+    
+    Args:
+        radian (any): The angle in radians.
+    
+    Returns:
+        float: The angle in degrees.
+    """
     return radian * (180 / sp.pi)
 
 
-def find_coterminal_angle(angle: float):
-    remain = angle % 360
-    rounds = angle // 360
+def find_coterminal_angle(angle: int | float | sp.Mul) -> Tuple[float, float] | Tuple[sp.Mul, sp.Mul]:
+    """
+    Find the coterminal angle of a given angle.
+    
+    Args:
+        angle (int | float | sp.Mul): The angle in degrees or radians.
+    
+    Returns:
+        Tuple[float, float] | Tuple[sp.Mul, sp.Mul]: The coterminal angle and the number of full rotations.
+    """
+    if isinstance(angle, (int, float)):
+        remain = angle % 360
+        rounds = angle // 360
+    else:
+        remain = angle % (2 * sp.pi)
+        rounds = angle // (2 * sp.pi)
     return remain, rounds
 
 
-def print_coterminal_angle(angle: float):
-    remain, rounds = find_coterminal_angle(angle)
-    print(f'The angle {angle} is equivalent to {remain} after {rounds} full rotations.')
+def print_coterminal_angle(angle: int | float | sp.Mul):
+    """
+    Print the coterminal angle of a given angle.
+    
+    Args:
+        angle (int | float | sp.Mul): The angle in degrees or radians.
+    """
+    if isinstance(angle, (int, float)):
+        remain, rounds = find_coterminal_angle(angle)
+        print(f'The angle {angle} is equivalent to {remain} after {rounds} full rotations.')
+    else:
+        remain, rounds = find_coterminal_angle(angle)
+        degrees = radian_to_degrees(remain)
+        print(f'The angle {angle} is equivalent to {remain} ({degrees} degrees) after {rounds} full rotations.')
 
 
-def find_coterminal_radian(radian: any):
-    remain = radian % (sp.pi * 2)
-    rounds = radian // (sp.pi * 2)
-    degrees = radian_to_degrees(remain)
-    return remain, rounds, degrees
-
-
-def print_coterminal_radian(radian: any):
-    remain, rounds, degrees = find_coterminal_radian(radian)
-    print(f'The angle {radian} is equivalent to {remain} ({degrees} degrees) after {rounds} full rotations.')
-
-
-def find_coterminal_angle_in_range(angle: float, bounds: Tuple[float, float]):
+def find_coterminal_angle_in_range(angle: int | float | sp.Mul,
+                                   bounds: Tuple[int | float, int | float] | Tuple[sp.Mul, sp.Mul]) -> int | float | sp.Mul:
+    """
+    Find the coterminal angle of a given angle within specified bounds.
+    
+    Args:
+        angle (int | float | sp.Mul): The angle in degrees or radians.
+        bounds (Tuple[int | float, int | float] | Tuple[sp.Mul, sp.Mul]): The lower and upper bounds.
+    
+    Returns:
+        int | float | sp.Mul: The coterminal angle within the specified bounds.
+    """
     lower_bound, upper_bound = bounds
-    while angle < lower_bound:
-        angle += 360
-    while angle > upper_bound:
-        angle -= 360
+    if isinstance(angle, (int, float)):
+        while angle < lower_bound:
+            angle += 360
+        while angle > upper_bound:
+            angle -= 360
+    else:
+        while angle < lower_bound:
+            angle += 2 * sp.pi
+        while angle > upper_bound:
+            angle -= 2 * sp.pi
     return angle
 
 
-def find_coterminal_radian_in_range(angle: float, bounds: Tuple[float, float]):
-    lower_bound, upper_bound = bounds
-    while angle < lower_bound:
-        angle += 2 * sp.pi
-    while angle > upper_bound:
-        angle -= 2 * sp.pi
-    return angle
-
-
-def find_reference_angle(angle: float):
+def find_reference_angle(angle: int | float | sp.Mul) -> int | float | sp.Mul:
+    """
+    Find the reference angle of a given angle.
+    
+    Args:
+        angle (int | float | sp.Mul): The angle in degrees or radians.
+    
+    Returns:
+        int | float | sp.Mul: The reference angle.
+    """
     angle = find_coterminal_angle(angle)[0]
-    # Quadrant 1
-    if 0 <= angle <= 90:
-        return angle
-    # Quadrant 2
-    elif 90 < angle <= 180:
-        return 180 - angle
-    # Quadrant 3
-    elif 180 < angle <= 270:
-        return angle - 180
-    # Quadrant 4
-    elif 270 < angle <= 360:
-        return 360 - angle
-    # Angle must be in the range of 0 to 360, so this should never happen
+    if isinstance(angle, (int, float)):
+        # Quadrant 1
+        if 0 <= angle <= 90:
+            return angle
+        # Quadrant 2
+        elif 90 < angle <= 180:
+            return 180 - angle
+        # Quadrant 3
+        elif 180 < angle <= 270:
+            return angle - 180
+        # Quadrant 4
+        elif 270 < angle <= 360:
+            return 360 - angle
+        # Angle must be in the range of 0 to 360, so this should never happen
+        else:
+            raise ValueError('Angle must be in the range of 0 to 360')
     else:
-        raise ValueError('Angle must be in the range of 0 to 360')
+        # Quadrant 1
+        if 0 <= angle <= sp.pi / 2:
+            return angle
+        # Quadrant 2
+        elif sp.pi / 2 < angle <= sp.pi:
+            return sp.pi - angle
+        # Quadrant 3
+        elif sp.pi < angle <= 3 * sp.pi / 2:
+            return angle - sp.pi
+        # Quadrant 4
+        elif 3 * sp.pi / 2 < angle <= 2 * sp.pi:
+            return 2 * sp.pi - angle
+        # Angle must be in the range of 0 to 2pi, so this should never happen
+        else:
+            raise ValueError('Radian must be in the range of 0 to 2pi')
 
 
-def find_reference_radian(radian: any):
-    radian = find_coterminal_radian(radian)[0]
-    # Quadrant 1
-    if 0 <= radian <= sp.pi / 2:
-        return radian
-    # Quadrant 2
-    elif sp.pi / 2 < radian <= sp.pi:
-        return sp.pi - radian
-    # Quadrant 3
-    elif sp.pi < radian <= 3 * sp.pi / 2:
-        return radian - sp.pi
-    # Quadrant 4
-    elif 3 * sp.pi / 2 < radian <= 2 * sp.pi:
-        return 2 * sp.pi - radian
-    # Radian must be in the range of 0 to 2pi, so this should never happen
+def list_coterminal_angles(degree: int | float | sp.Mul, n=10):
+    """
+    List coterminal angles of a given angle in degrees.
+    
+    Args:
+        degree (int | float): The angle in degrees.
+        n (int, optional): The number of coterminal angles to list. Defaults to 10.
+    
+    Returns:
+        list: A list of coterminal angles in degrees.
+    """
+    angles = []
+    if isinstance(degree, (int, float)):
+        for i in range(-n, n):
+            angles.append(degree + i * 360)
     else:
-        raise ValueError('Radian must be in the range of 0 to 2pi')
-
-
-def list_coterminal_angles_in_degrees(degree: float, n=10):
-    angles = []
-    for i in range(-n, n):
-        angles.append(degree + i * 360)
-    return angles
-
-
-def list_coterminal_angles_in_radians(radian: any, n=10):
-    angles = []
-    for i in range(-n, n):
-        angles.append(radian + i * 2 * sp.pi)
+        for i in range(-n, n):
+            angles.append(degree + i * 2 * sp.pi)
     return angles
 
 
 def get_trig_functions_from_point(point: Tuple[float, float], print_to_output=True):
+    """
+    Calculate trigonometric functions from a given point.
+    
+    Args:
+        point (Tuple[float, float]): The point (x, y).
+        print_to_output (bool, optional): Whether to print the results. Defaults to True.
+    
+    Returns:
+        Tuple: The radius, sine, cosine, tangent, cosecant, secant, and cotangent values.
+    """
     x, y = point
     r = sp.sqrt(x**2 + y**2)
     sin = y / r
