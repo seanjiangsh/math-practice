@@ -237,3 +237,26 @@ def get_trig_functions_from_point(point: Tuple[float, float], print_to_output=Tr
         print(f'cot = {sp.nsimplify(cot)}')
 
     return r, sin, cos, tan, csc, sec, cot
+
+
+def print_circular_function_values(radian: float, round_to=4):
+    """
+    Print the values of circular functions at a given angle in radians.
+
+    Args:
+        radian (float): The angle in radians.
+    """
+
+    sin_s = math.sin(radian)
+    cos_s = math.cos(radian)
+    tan_s = math.tan(radian)
+    csc_s = 1 / sin_s
+    sec_s = 1 / cos_s
+    cot_s = 1 / tan_s
+
+    print(f"$\\sin{{{round(radian, round_to)}}} \\approx {round(sin_s, round_to)}$")
+    print(f"$\\cos{{{round(radian, round_to)}}} \\approx {round(cos_s, round_to)}$")
+    print(f"$\\tan{{{round(radian, round_to)}}} \\approx {round(tan_s, round_to)}$")
+    print(f"$\\csc{{{round(radian, round_to)}}} \\approx {round(csc_s, round_to)}$")
+    print(f"$\\sec{{{round(radian, round_to)}}} \\approx {round(sec_s, round_to)}$")
+    print(f"$\\cot{{{round(radian, round_to)}}} \\approx {round(cot_s, round_to)}$")
