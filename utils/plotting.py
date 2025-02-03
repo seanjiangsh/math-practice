@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sp
 import math
+from scipy.signal import find_peaks
 
 from numpy import ndarray
 from typing import TypedDict, Optional
@@ -231,3 +232,37 @@ def plot_radian_in_unit_circle(radian: float, title: str):
 
     # Show the plot
     plt.show()
+
+
+def get_segment_lines_by_peaks(x: ndarray[float], y: ndarray[float]) -> list[LineDict]:
+    """
+    Identifies the local minima (valleys) and maxima (peaks) in the given y data,
+    and segments the x and y data at these points. Each segment is then stored
+    as a dictionary with keys 'x', 'y', and 'color'.
+    Args:
+        x (ndarray[float]): The x-coordinates of the data points.
+        y (ndarray[float]): The y-coordinates of the data points.
+    Returns:
+        list[LineDict]: A list of dictionaries, each representing a segment of the
+                        data with keys 'x' (x-coordinates), 'y' (y-coordinates), 
+                        and 'color' (set to 'red').
+    """
+
+    # Find local minima (valleys) and maxima (peaks)
+    peaks, _ = find_peaks(y, height=0)  # Find peaks (top of U-shape)
+    valleys, _ = find_peaks(-y, height=0)  # Find valleys (bottom of U-shape)
+
+    # Combine peak and valley indices as segment boundaries
+    segment_boundaries = np.sort(np.concatenate((peaks, valleys)))
+
+    # Split data at these boundaries
+    x_segments = np.split(x, segment_boundaries)
+    y_segments = np.split(y, segment_boundaries)
+
+    # Plot each segment separately to avoid connecting lines
+    lines: list[LineDict] = []
+    for x_seg, y_seg in zip(x_segments, y_segments):
+        line = {"x": x_seg, "y": y_seg}
+        lines.append(line)
+
+    return lines
