@@ -55,12 +55,15 @@ def setup_plot(limits: LimitDict = None) -> None:
         plt.xlim(limits['x'])
         plt.ylim(limits['y'])
 
-        x_start = (limits['x'][0] // 5) * 5
-        x_end = ((limits['x'][1] // 5) + 1) * 5
-        y_start = (limits['y'][0] // 5) * 5
-        y_end = ((limits['y'][1] // 5) + 1) * 5
-        plt.gca().set_xticks(np.arange(x_start, x_end, 5), minor=False)
-        plt.gca().set_yticks(np.arange(y_start, y_end, 5), minor=False)
+        x_start = (limits['x'][0])
+        x_end = ((limits['x'][1]) + 1)
+        y_start = (limits['y'][0])
+        y_end = ((limits['y'][1]) + 1)
+
+        x_ticks = (limits['x'][1] - limits['x'][0]) / 4
+        y_ticks = (limits['y'][1] - limits['y'][0]) / 4
+        plt.gca().set_xticks(np.arange(x_start, x_end, x_ticks), minor=False)
+        plt.gca().set_yticks(np.arange(y_start, y_end, y_ticks), minor=False)
     else:
         plt.xlim(-10, 10)
         plt.ylim(-10, 10)
@@ -234,7 +237,7 @@ def plot_radian_in_unit_circle(radian: float, title: str):
     plt.show()
 
 
-def get_segment_lines_by_peaks(x: ndarray[float], y: ndarray[float]) -> list[LineDict]:
+def get_segment_lines_by_peaks(x: ndarray[float], y: ndarray[float], threshold=None) -> list[LineDict]:
     """
     Identifies the local minima (valleys) and maxima (peaks) in the given y data,
     and segments the x and y data at these points. Each segment is then stored
@@ -249,8 +252,8 @@ def get_segment_lines_by_peaks(x: ndarray[float], y: ndarray[float]) -> list[Lin
     """
 
     # Find local minima (valleys) and maxima (peaks)
-    peaks, _ = find_peaks(y, height=0)  # Find peaks (top of U-shape)
-    valleys, _ = find_peaks(-y, height=0)  # Find valleys (bottom of U-shape)
+    peaks, _ = find_peaks(y, height=0, threshold=threshold)  # Find peaks (top of U-shape)
+    valleys, _ = find_peaks(-y, height=0, threshold=threshold)  # Find valleys (bottom of U-shape)
 
     # Combine peak and valley indices as segment boundaries
     segment_boundaries = np.sort(np.concatenate((peaks, valleys)))
