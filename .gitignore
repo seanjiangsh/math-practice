@@ -2,7 +2,6 @@
 venv/
 
 dev/
-notes/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
