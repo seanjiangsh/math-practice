@@ -1,6 +1,6 @@
 import math
 import sympy as sp
-from typing import Tuple
+from typing import Tuple, Dict, Union, Optional, List
 
 
 def degrees_to_radians(degrees: float, symbolic=False) -> float:
@@ -260,3 +260,256 @@ def print_circular_function_values(radian: float, round_to=4):
     print(f"$\\csc{{{round(radian, round_to)}}} \\approx {round(csc_s, round_to)}$")
     print(f"$\\sec{{{round(radian, round_to)}}} \\approx {round(sec_s, round_to)}$")
     print(f"$\\cot{{{round(radian, round_to)}}} \\approx {round(cot_s, round_to)}$")
+
+
+def _print_triangle_solution(triangle: Dict[str, float], is_radians: bool, symbolic: bool = False):
+    """Helper function to print triangle solution in a consistent format."""
+    if symbolic:
+        print(f"Side a: {sp.nsimplify(triangle['a'])}")
+        print(f"Side b: {sp.nsimplify(triangle['b'])}")
+        print(f"Side c: {sp.nsimplify(triangle['c'])}")
+
+        if not is_radians:
+            print(f"Angle A: {sp.nsimplify(triangle['A'])}°")
+            print(f"Angle B: {sp.nsimplify(triangle['B'])}°")
+            print(f"Angle C: {sp.nsimplify(triangle['C'])}°")
+        else:
+            print(f"Angle A: {sp.nsimplify(triangle['A'])} rad")
+            print(f"Angle B: {sp.nsimplify(triangle['B'])} rad")
+            print(f"Angle C: {sp.nsimplify(triangle['C'])} rad")
+    else:
+        print(f"Side a: {triangle['a']:.4f}")
+        print(f"Side b: {triangle['b']:.4f}")
+        print(f"Side c: {triangle['c']:.4f}")
+
+        if not is_radians:
+            print(f"Angle A: {triangle['A']:.4f}°")
+            print(f"Angle B: {triangle['B']:.4f}°")
+            print(f"Angle C: {triangle['C']:.4f}°")
+        else:
+            print(f"Angle A: {triangle['A']:.4f} rad")
+            print(f"Angle B: {triangle['B']:.4f} rad")
+            print(f"Angle C: {triangle['C']:.4f} rad")
+
+
+def solve_triangle_SAA_ASA(known_side: float,
+                           known_angles: Tuple[float, float],
+                           side_label: str = 'a',
+                           angle_labels: Tuple[str, str] = ('A', 'B'),
+                           is_radians: bool = False,
+                           print_result: bool = True,
+                           symbolic: bool = False) -> Dict[str, Union[float, sp.Expr]]:
+    """
+    Solve a triangle using the law of sines for SAA (Side-Angle-Angle) or ASA (Angle-Side-Angle) cases.
+    
+    Args:
+        known_side (float): The known side length of the triangle.
+        known_angles (Tuple[float, float]): Two known angles of the triangle.
+        side_label (str, optional): Label of the known side. Defaults to 'a'.
+        angle_labels (Tuple[str, str], optional): Labels of the known angles. Defaults to ('A', 'B').
+        is_radians (bool, optional): Whether the angles are in radians. Defaults to False.
+        print_result (bool, optional): Whether to print the results. Defaults to True.
+        symbolic (bool, optional): Whether to use symbolic calculations. Defaults to False.
+    
+    Returns:
+        Dict[str, Union[float, sp.Expr]]: A dictionary containing all sides and angles of the triangle.
+    """
+    # Convert angles to radians if needed
+    angle1, angle2 = known_angles
+    if not is_radians:
+        angle1 = degrees_to_radians(angle1, symbolic)
+        angle2 = degrees_to_radians(angle2, symbolic)
+
+    # Calculate the third angle
+    pi_val = sp.pi if symbolic else math.pi
+    angle3 = pi_val - angle1 - angle2
+
+    # Create a dictionary to store all sides and angles
+    triangle = {'A': 0, 'B': 0, 'C': 0, 'a': 0, 'b': 0, 'c': 0}
+
+    # Assign known angles
+    triangle[angle_labels[0]] = angle1
+    triangle[angle_labels[1]] = angle2
+
+    # Find the third angle label
+    all_angle_labels = ['A', 'B', 'C']
+    third_angle_label = [label for label in all_angle_labels if label not in angle_labels][0]
+    triangle[third_angle_label] = angle3
+
+    # Assign the known side
+    triangle[side_label] = known_side
+
+    # Calculate the other sides using the law of sines
+    all_side_labels = ['a', 'b', 'c']
+    sin_func = sp.sin if symbolic else math.sin
+
+    for i, side_lbl in enumerate(all_side_labels):
+        if side_lbl != side_label:
+            angle_lbl = all_angle_labels[i]  # Corresponding angle has same index
+            opposite_to_known = all_angle_labels[all_side_labels.index(side_label)]
+            triangle[side_lbl] = known_side * sin_func(triangle[angle_lbl]) / sin_func(triangle[opposite_to_known])
+
+    # Convert angles back to degrees if input was in degrees
+    if not is_radians:
+        triangle['A'] = radians_to_degrees(triangle['A'], symbolic)
+        triangle['B'] = radians_to_degrees(triangle['B'], symbolic)
+        triangle['C'] = radians_to_degrees(triangle['C'], symbolic)
+
+    if print_result:
+        print("Triangle Solution:")
+        _print_triangle_solution(triangle, is_radians, symbolic)
+
+    return triangle
+
+
+def solve_triangle_SSA(side_a: float,
+                       side_b: float,
+                       angle_A: float,
+                       side_labels: Tuple[str, str] = ('a', 'b'),
+                       angle_label: str = 'A',
+                       is_radians: bool = False,
+                       print_result: bool = True,
+                       symbolic: bool = False) -> List[Dict[str, Union[float, sp.Expr]]]:
+    """
+    Solve the "ambiguous case" of SSA (Side-Side-Angle) triangles.
+    This function handles the situation where given two sides and an angle opposite to one of them,
+    there could be 0, 1, or 2 possible triangles.
+    
+    Args:
+        side_a (float): The side opposite to the known angle.
+        side_b (float): Another known side.
+        angle_A (float): The known angle (opposite to side_a).
+        side_labels (Tuple[str, str], optional): Labels of the known sides. Defaults to ('a', 'b').
+        angle_label (str, optional): Label of the known angle. Defaults to 'A'.
+        is_radians (bool, optional): Whether the angle is in radians. Defaults to False.
+        print_result (bool, optional): Whether to print the results. Defaults to True.
+        symbolic (bool, optional): Whether to use symbolic calculations. Defaults to False.
+    
+    Returns:
+        List[Dict[str, Union[float, sp.Expr]]]: A list containing dictionaries for each possible triangle solution.
+    """
+    # Convert angle to radians if needed
+    if not is_radians:
+        angle_A_rad = degrees_to_radians(angle_A, symbolic)
+    else:
+        angle_A_rad = angle_A
+
+    # Get the labels for the opposite side and angles
+    side_a_label, side_b_label = side_labels
+
+    # Find the remaining labels
+    all_side_labels = ['a', 'b', 'c']
+    all_angle_labels = ['A', 'B', 'C']
+
+    side_c_label = [label for label in all_side_labels if label not in side_labels][0]
+    angle_B_label = all_angle_labels[all_side_labels.index(side_b_label)]
+    angle_C_label = all_angle_labels[all_side_labels.index(side_c_label)]
+
+    # Setup math functions based on symbolic flag
+    sin_func = sp.sin if symbolic else math.sin
+    cos_func = sp.cos if symbolic else math.cos
+    asin_func = sp.asin if symbolic else math.asin
+    pi_val = sp.pi if symbolic else math.pi
+
+    # Calculate sin(B) using the law of sines: sin(B)/b = sin(A)/a
+    sin_B = (side_b * sin_func(angle_A_rad)) / side_a
+
+    # Check which case we have
+    solutions = []
+
+    # Case 1: No possible triangles (sin(B) > 1)
+    if not symbolic and sin_B > 1 and not math.isclose(sin_B, 1):
+        if print_result:
+            print("No possible triangles can be formed with the given measurements.")
+        return solutions
+
+    # Case 2: One triangle (right triangle) when sin(B) ≈ 1
+    if not symbolic and math.isclose(sin_B, 1):
+        triangle = {'A': 0, 'B': 0, 'C': 0, 'a': 0, 'b': 0, 'c': 0}
+        triangle[angle_label] = angle_A_rad
+        triangle[angle_B_label] = pi_val / 2
+        triangle[angle_C_label] = pi_val / 2 - angle_A_rad
+        triangle[side_a_label] = side_a
+        triangle[side_b_label] = side_b
+        triangle[side_c_label] = side_a * cos_func(angle_A_rad)
+
+        # Convert angles back to degrees if input was in degrees
+        if not is_radians:
+            triangle[angle_label] = angle_A
+            triangle[angle_B_label] = radians_to_degrees(triangle[angle_B_label], symbolic)
+            triangle[angle_C_label] = radians_to_degrees(triangle[angle_C_label], symbolic)
+
+        solutions.append(triangle)
+
+        if print_result:
+            print("One possible triangle (right triangle):")
+            _print_triangle_solution(triangle, is_radians, symbolic)
+
+        return solutions
+
+    # Case 3 & 4: One or two triangles (sin(B) < 1)
+
+    # Ensure sin_B is at most 1 for numeric case (handles potential floating-point errors)
+    if not symbolic and sin_B > 1:
+        sin_B = 1.0
+
+    # First triangle solution with acute angle B
+    angle_B_rad1 = asin_func(sin_B)
+    angle_C_rad1 = pi_val - angle_A_rad - angle_B_rad1
+    side_c1 = side_a * sin_func(angle_C_rad1) / sin_func(angle_A_rad)
+
+    # Create first triangle solution
+    triangle1 = {'A': 0, 'B': 0, 'C': 0, 'a': 0, 'b': 0, 'c': 0}
+    triangle1[angle_label] = angle_A_rad
+    triangle1[angle_B_label] = angle_B_rad1
+    triangle1[angle_C_label] = angle_C_rad1
+    triangle1[side_a_label] = side_a
+    triangle1[side_b_label] = side_b
+    triangle1[side_c_label] = side_c1
+
+    # Convert angles back to degrees if input was in degrees
+    if not is_radians:
+        triangle1[angle_label] = angle_A
+        triangle1[angle_B_label] = radians_to_degrees(triangle1[angle_B_label], symbolic)
+        triangle1[angle_C_label] = radians_to_degrees(triangle1[angle_C_label], symbolic)
+
+    solutions.append(triangle1)
+
+    # Second triangle solution with obtuse angle B
+    angle_B_rad2 = pi_val - angle_B_rad1
+    angle_C_rad2 = pi_val - angle_A_rad - angle_B_rad2
+
+    # Check validity of second solution using angle_A + angle_B' < 180
+    valid_second = symbolic or (angle_C_rad2 > 0 and radians_to_degrees(angle_A_rad + angle_B_rad2, symbolic) < 180)
+
+    if valid_second:
+        side_c2 = side_a * sin_func(angle_C_rad2) / sin_func(angle_A_rad)
+
+        # Create second triangle solution
+        triangle2 = {'A': 0, 'B': 0, 'C': 0, 'a': 0, 'b': 0, 'c': 0}
+        triangle2[angle_label] = angle_A_rad
+        triangle2[angle_B_label] = angle_B_rad2
+        triangle2[angle_C_label] = angle_C_rad2
+        triangle2[side_a_label] = side_a
+        triangle2[side_b_label] = side_b
+        triangle2[side_c_label] = side_c2
+
+        # Convert angles back to degrees if input was in degrees
+        if not is_radians:
+            triangle2[angle_label] = angle_A
+            triangle2[angle_B_label] = radians_to_degrees(triangle2[angle_B_label], symbolic)
+            triangle2[angle_C_label] = radians_to_degrees(triangle2[angle_C_label], symbolic)
+
+        solutions.append(triangle2)
+
+        if print_result:
+            print("Two possible triangles:")
+            print("Triangle 1:")
+            _print_triangle_solution(triangle1, is_radians, symbolic)
+            print("\nTriangle 2:")
+            _print_triangle_solution(triangle2, is_radians, symbolic)
+    elif print_result:
+        print("One possible triangle:")
+        _print_triangle_solution(triangle1, is_radians, symbolic)
+
+    return solutions
