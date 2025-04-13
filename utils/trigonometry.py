@@ -513,3 +513,97 @@ def solve_triangle_SSA(side_a: float,
         _print_triangle_solution(triangle1, is_radians, symbolic)
 
     return solutions
+
+
+def calculate_triangle_area_SAS(side1: float,
+                                side2: float,
+                                included_angle: float,
+                                is_radians: bool = False,
+                                print_result: bool = True,
+                                symbolic: bool = False) -> Union[float, sp.Expr]:
+    """
+    Calculate the area of a triangle using two sides and the included angle (SAS).
+    
+    Args:
+        side1 (float): First side of the triangle.
+        side2 (float): Second side of the triangle.
+        included_angle (float): The angle between the two sides.
+        is_radians (bool, optional): Whether the angle is in radians. Defaults to False.
+        print_result (bool, optional): Whether to print the result. Defaults to True.
+        symbolic (bool, optional): Whether to use symbolic calculations. Defaults to False.
+    
+    Returns:
+        Union[float, sp.Expr]: The calculated area of the triangle.
+    """
+    # Convert angle to radians if needed
+    if not is_radians:
+        angle_rad = degrees_to_radians(included_angle, symbolic)
+    else:
+        angle_rad = included_angle
+
+    # Choose appropriate sin function based on symbolic flag
+    sin_func = sp.sin if symbolic else math.sin
+
+    # Calculate area using the formula: Area = (1/2) * side1 * side2 * sin(angle)
+    area = 0.5 * side1 * side2 * sin_func(angle_rad)
+
+    if print_result:
+        if symbolic:
+            print(f"Triangle area: {sp.nsimplify(area)}")
+        else:
+            print(f"Triangle area: {area:.4f}")
+
+    return area
+
+
+def calculate_triangle_area_ASA(angle1: float,
+                                angle2: float,
+                                included_side: float,
+                                is_radians: bool = False,
+                                print_result: bool = True,
+                                symbolic: bool = False) -> Union[float, sp.Expr]:
+    """
+    Calculate the area of a triangle using two angles and the included side (ASA).
+    
+    Args:
+        angle1 (float): First angle of the triangle.
+        angle2 (float): Second angle of the triangle.
+        included_side (float): The side between the two angles.
+        is_radians (bool, optional): Whether angles are in radians. Defaults to False.
+        print_result (bool, optional): Whether to print the result. Defaults to True.
+        symbolic (bool, optional): Whether to use symbolic calculations. Defaults to False.
+    
+    Returns:
+        Union[float, sp.Expr]: The calculated area of the triangle.
+    """
+    # Convert angles to radians if needed
+    if not is_radians:
+        angle1_rad = degrees_to_radians(angle1, symbolic)
+        angle2_rad = degrees_to_radians(angle2, symbolic)
+    else:
+        angle1_rad = angle1
+        angle2_rad = angle2
+
+    # Choose appropriate math functions based on symbolic flag
+    sin_func = sp.sin if symbolic else math.sin
+    pi_val = sp.pi if symbolic else math.pi
+
+    # Calculate the third angle
+    angle3_rad = pi_val - angle1_rad - angle2_rad
+
+    # Calculate the other two sides using the law of sines
+    # If c is the included side between angles A and B, then:
+    # a/sin(A) = b/sin(B) = c/sin(C)
+    side_a = included_side * sin_func(angle1_rad) / sin_func(angle3_rad)
+    side_b = included_side * sin_func(angle2_rad) / sin_func(angle3_rad)
+
+    # Calculate area using the formula: Area = (1/2) * a * b * sin(C)
+    area = 0.5 * side_a * side_b * sin_func(angle3_rad)
+
+    if print_result:
+        if symbolic:
+            print(f"Triangle area: {sp.nsimplify(area)}")
+        else:
+            print(f"Triangle area: {area:.4f}")
+
+    return area
