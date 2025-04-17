@@ -607,3 +607,157 @@ def calculate_triangle_area_ASA(angle1: float,
             print(f"Triangle area: {area:.4f}")
 
     return area
+
+
+def solve_triangle_SSS(side_a: float,
+                       side_b: float,
+                       side_c: float,
+                       is_radians: bool = False,
+                       print_result: bool = True,
+                       symbolic: bool = False) -> Dict[str, Union[float, sp.Expr]]:
+    """
+    Solve a triangle given all three sides (SSS) using the law of cosines.
+    
+    Args:
+        side_a (float): First side of the triangle.
+        side_b (float): Second side of the triangle.
+        side_c (float): Third side of the triangle.
+        is_radians (bool, optional): Whether to return angles in radians. Defaults to False.
+        print_result (bool, optional): Whether to print the result. Defaults to True.
+        symbolic (bool, optional): Whether to use symbolic calculations. Defaults to False.
+    
+    Returns:
+        Dict[str, Union[float, sp.Expr]]: A dictionary containing all sides and angles of the triangle.
+    """
+    # Check triangle inequality theorem
+    if side_a + side_b <= side_c or side_a + side_c <= side_b or side_b + side_c <= side_a:
+        if print_result:
+            print("These sides cannot form a triangle (violates triangle inequality theorem).")
+        return {}
+
+    # Setup math functions based on symbolic flag
+    acos_func = sp.acos if symbolic else math.acos
+    pi_val = sp.pi if symbolic else math.pi
+
+    # Calculate angles using the law of cosines
+    angle_A_rad = acos_func((side_b**2 + side_c**2 - side_a**2) / (2 * side_b * side_c))
+    angle_B_rad = acos_func((side_a**2 + side_c**2 - side_b**2) / (2 * side_a * side_c))
+    angle_C_rad = acos_func((side_a**2 + side_b**2 - side_c**2) / (2 * side_a * side_b))
+
+    # Verify angle sum (should be π radians or 180 degrees)
+    angle_sum = angle_A_rad + angle_B_rad + angle_C_rad
+    if symbolic:
+        if not sp.simplify(angle_sum - pi_val) == 0:
+            print("Warning: Sum of angles is not exactly π radians (possible computational error).")
+    elif not math.isclose(angle_sum, pi_val, rel_tol=1e-10):
+        print(f"Warning: Sum of angles is {angle_sum:.10f} radians, not π (possible computational error).")
+
+    # Create a dictionary to store all sides and angles
+    triangle = {'A': angle_A_rad, 'B': angle_B_rad, 'C': angle_C_rad, 'a': side_a, 'b': side_b, 'c': side_c}
+
+    # Convert angles to degrees if needed
+    if not is_radians:
+        triangle['A'] = radians_to_degrees(triangle['A'], symbolic)
+        triangle['B'] = radians_to_degrees(triangle['B'], symbolic)
+        triangle['C'] = radians_to_degrees(triangle['C'], symbolic)
+
+    if print_result:
+        print("Triangle Solution:")
+        _print_triangle_solution(triangle, is_radians, symbolic)
+
+    return triangle
+
+
+def solve_triangle_SAS(side_a: float,
+                       side_b: float,
+                       included_angle_C: float,
+                       side_labels: Tuple[str, str] = ('a', 'b'),
+                       angle_label: str = 'C',
+                       is_radians: bool = False,
+                       print_result: bool = True,
+                       symbolic: bool = False) -> Dict[str, Union[float, sp.Expr]]:
+    """
+    Solve a triangle given two sides and the included angle (SAS) using the law of cosines.
+    
+    Args:
+        side_a (float): First side of the triangle.
+        side_b (float): Second side of the triangle.
+        included_angle_C (float): The angle between the two sides.
+        side_labels (Tuple[str, str], optional): Labels of the known sides. Defaults to ('a', 'b').
+        angle_label (str, optional): Label of the known angle. Defaults to 'C'.
+        is_radians (bool, optional): Whether the angle is in radians. Defaults to False.
+        print_result (bool, optional): Whether to print the result. Defaults to True.
+        symbolic (bool, optional): Whether to use symbolic calculations. Defaults to False.
+    
+    Returns:
+        Dict[str, Union[float, sp.Expr]]: A dictionary containing all sides and angles of the triangle.
+    """
+    # Convert angle to radians if needed
+    if not is_radians:
+        angle_C_rad = degrees_to_radians(included_angle_C, symbolic)
+    else:
+        angle_C_rad = included_angle_C
+
+    # Get all side and angle labels
+    all_side_labels = ['a', 'b', 'c']
+    all_angle_labels = ['A', 'B', 'C']
+
+    # Find the third side label
+    side_a_label, side_b_label = side_labels
+    side_c_label = [label for label in all_side_labels if label not in side_labels][0]
+
+    # Find the other angle labels
+    angle_C_label = angle_label
+    other_angle_labels = [label for label in all_angle_labels if label != angle_C_label]
+    angle_A_label = other_angle_labels[all_side_labels.index(side_a_label)]
+    angle_B_label = other_angle_labels[all_side_labels.index(side_b_label)]
+
+    # Setup math functions based on symbolic flag
+    cos_func = sp.cos if symbolic else math.cos
+    acos_func = sp.acos if symbolic else math.acos
+    sin_func = sp.sin if symbolic else math.sin
+    asin_func = sp.asin if symbolic else math.asin
+    pi_val = sp.pi if symbolic else math.pi
+
+    # Calculate the third side using the law of cosines: c² = a² + b² - 2ab·cos(C)
+    side_c = sp.sqrt(side_a**2 + side_b**2 - 2 * side_a * side_b * cos_func(angle_C_rad)) if symbolic else \
+             math.sqrt(side_a**2 + side_b**2 - 2 * side_a * side_b * cos_func(angle_C_rad))
+
+    # Calculate the other angles using the law of cosines
+    angle_A_rad = acos_func((side_b**2 + side_c**2 - side_a**2) / (2 * side_b * side_c))
+    angle_B_rad = acos_func((side_a**2 + side_c**2 - side_b**2) / (2 * side_a * side_c))
+
+    # Verify angle sum (should be π radians or 180 degrees)
+    angle_sum = angle_A_rad + angle_B_rad + angle_C_rad
+    if symbolic:
+        if not sp.simplify(angle_sum - pi_val) == 0:
+            print("Warning: Sum of angles is not exactly π radians (possible computational error).")
+    elif not math.isclose(angle_sum, pi_val, rel_tol=1e-10):
+        print(f"Warning: Sum of angles is {angle_sum:.10f} radians, not π (possible computational error).")
+
+    # Create a dictionary to store all sides and angles
+    triangle = {
+        side_a_label: side_a,
+        side_b_label: side_b,
+        side_c_label: side_c,
+        angle_A_label: angle_A_rad,
+        angle_B_label: angle_B_rad,
+        angle_C_label: angle_C_rad
+    }
+
+    # Convert angles back to degrees if input was in degrees
+    if not is_radians:
+        triangle[angle_A_label] = radians_to_degrees(triangle[angle_A_label], symbolic)
+        triangle[angle_B_label] = radians_to_degrees(triangle[angle_B_label], symbolic)
+        triangle[angle_C_label] = included_angle_C  # Original angle input
+
+    # Create standardized output dictionary for _print_triangle_solution
+    std_triangle = {'A': 0, 'B': 0, 'C': 0, 'a': 0, 'b': 0, 'c': 0}
+    for key, value in triangle.items():
+        std_triangle[key] = value
+
+    if print_result:
+        print("Triangle Solution:")
+        _print_triangle_solution(std_triangle, is_radians, symbolic)
+
+    return std_triangle
