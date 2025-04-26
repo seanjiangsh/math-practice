@@ -609,6 +609,48 @@ def calculate_triangle_area_ASA(angle1: float,
     return area
 
 
+def calculate_triangle_area_SSS(side_a: float,
+                                side_b: float,
+                                side_c: float,
+                                print_result: bool = True,
+                                symbolic: bool = False) -> Union[float, sp.Expr]:
+    """
+    Calculate the area of a triangle using Heron's formula given all three sides (SSS).
+    
+    Args:
+        side_a (float): First side of the triangle.
+        side_b (float): Second side of the triangle.
+        side_c (float): Third side of the triangle.
+        print_result (bool, optional): Whether to print the result. Defaults to True.
+        symbolic (bool, optional): Whether to use symbolic calculations. Defaults to False.
+    
+    Returns:
+        Union[float, sp.Expr]: The calculated area of the triangle.
+    """
+    # Check triangle inequality theorem
+    if side_a + side_b <= side_c or side_a + side_c <= side_b or side_b + side_c <= side_a:
+        if print_result:
+            print("These sides cannot form a triangle (violates triangle inequality theorem).")
+        return 0
+
+    # Calculate the semi-perimeter
+    semi_perimeter = (side_a + side_b + side_c) / 2
+
+    # Choose appropriate sqrt function based on symbolic flag
+    sqrt_func = sp.sqrt if symbolic else math.sqrt
+
+    # Calculate area using Heron's formula: Area = sqrt(s(s-a)(s-b)(s-c))
+    area = sqrt_func(semi_perimeter * (semi_perimeter - side_a) * (semi_perimeter - side_b) * (semi_perimeter - side_c))
+
+    if print_result:
+        if symbolic:
+            print(f"Triangle area: {sp.nsimplify(area)}")
+        else:
+            print(f"Triangle area: {area:.4f}")
+
+    return area
+
+
 def solve_triangle_SSS(side_a: float,
                        side_b: float,
                        side_c: float,
