@@ -2,6 +2,9 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+import sympy as sp
+import math
+from scipy.signal import find_peaks
 
 from numpy import ndarray
 from typing import TypedDict, Optional
@@ -52,12 +55,15 @@ def setup_plot(limits: LimitDict = None) -> None:
         plt.xlim(limits['x'])
         plt.ylim(limits['y'])
 
-        x_start = (limits['x'][0] // 5) * 5
-        x_end = ((limits['x'][1] // 5) + 1) * 5
-        y_start = (limits['y'][0] // 5) * 5
-        y_end = ((limits['y'][1] // 5) + 1) * 5
-        plt.gca().set_xticks(np.arange(x_start, x_end, 5), minor=False)
-        plt.gca().set_yticks(np.arange(y_start, y_end, 5), minor=False)
+        x_start = (limits['x'][0])
+        x_end = ((limits['x'][1]) + 1)
+        y_start = (limits['y'][0])
+        y_end = ((limits['y'][1]) + 1)
+
+        x_ticks = (limits['x'][1] - limits['x'][0]) / 4
+        y_ticks = (limits['y'][1] - limits['y'][0]) / 4
+        plt.gca().set_xticks(np.arange(x_start, x_end, x_ticks), minor=False)
+        plt.gca().set_yticks(np.arange(y_start, y_end, y_ticks), minor=False)
     else:
         plt.xlim(-10, 10)
         plt.ylim(-10, 10)
@@ -193,3 +199,73 @@ def add_polygon(polygon: PolygonDict):
 
     # Fill the polygon
     plt.fill(x, y, color=fill_color, alpha=0.5, label=label)
+
+
+def plot_radian_in_unit_circle(radian: float, title: str):
+    plt.figure(figsize=(6, 6))
+
+    # Create a unit circle
+    theta = np.linspace(0, 2 * np.pi, 100)
+    x = np.cos(theta)
+    y = np.sin(theta)
+
+    # Plot the unit circle
+    plt.plot(x, y)
+
+    # Plot the angle
+    x_angle = [0, np.cos(radian)]
+    y_angle = [0, np.sin(radian)]
+    plt.plot(x_angle, y_angle, label=f'Angle {radian} rad', color='red')
+
+    # Plot the angle arc
+    arc = np.linspace(0, radian, 100)
+    x_arc = np.cos(arc)
+    y_arc = np.sin(arc)
+    plt.plot(x_arc, y_arc, color='red', linestyle='dotted')
+
+    # Set equal scaling
+    plt.axis('equal')
+
+    # Add labels and legend
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+
+    # Add title
+    plt.title(title)
+
+    # Show the plot
+    plt.show()
+
+
+def get_segment_lines_by_peaks(x: ndarray[float], y: ndarray[float], threshold=None) -> list[LineDict]:
+    """
+    Identifies the local minima (valleys) and maxima (peaks) in the given y data,
+    and segments the x and y data at these points. Each segment is then stored
+    as a dictionary with keys 'x', 'y', and 'color'.
+    Args:
+        x (ndarray[float]): The x-coordinates of the data points.
+        y (ndarray[float]): The y-coordinates of the data points.
+    Returns:
+        list[LineDict]: A list of dictionaries, each representing a segment of the
+                        data with keys 'x' (x-coordinates), 'y' (y-coordinates), 
+                        and 'color' (set to 'red').
+    """
+
+    # Find local minima (valleys) and maxima (peaks)
+    peaks, _ = find_peaks(y, height=0, threshold=threshold)  # Find peaks (top of U-shape)
+    valleys, _ = find_peaks(-y, height=0, threshold=threshold)  # Find valleys (bottom of U-shape)
+
+    # Combine peak and valley indices as segment boundaries
+    segment_boundaries = np.sort(np.concatenate((peaks, valleys)))
+
+    # Split data at these boundaries
+    x_segments = np.split(x, segment_boundaries)
+    y_segments = np.split(y, segment_boundaries)
+
+    # Plot each segment separately to avoid connecting lines
+    lines: list[LineDict] = []
+    for x_seg, y_seg in zip(x_segments, y_segments):
+        line = {"x": x_seg, "y": y_seg}
+        lines.append(line)
+
+    return lines
