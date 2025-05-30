@@ -9,6 +9,8 @@ from scipy.signal import find_peaks
 from numpy import ndarray
 from typing import TypedDict, Optional
 
+from preCalculus import get_pi_fraction_string, find_polar_vertices
+
 
 class PointDict(TypedDict):
     x: float
@@ -37,6 +39,15 @@ class FillBetweenDict(TypedDict):
 class LimitDict(TypedDict):
     x: tuple[float, float]
     y: tuple[float, float]
+
+
+class PolarCurveDict(TypedDict):
+    theta: ndarray[float]
+    r: ndarray[float]
+    color: Optional[str]
+    linestyle: Optional[str]
+    label: Optional[str]
+    points: Optional[list[PointDict]]
 
 
 # Functions
@@ -269,3 +280,137 @@ def get_segment_lines_by_peaks(x: ndarray[float], y: ndarray[float], threshold=N
         lines.append(line)
 
     return lines
+
+
+def plot_polar(title: str, curves: list[PolarCurveDict], limits: Optional[tuple[float, float]] = None):
+    """
+    Plot curves in polar coordinates using radians.
+    
+    Args:
+        title (str): Title of the plot
+        curves (list[PolarCurveDict]): List of polar curves to plot
+        limits (Optional[tuple[float, float]]): Optional radial limits as (r_min, r_max)
+    """
+    plt.figure(figsize=(8, 8))
+    ax = plt.subplot(projection='polar')
+
+    # Set to counterclockwise direction with east as zero location
+    # ax.set_theta_zero_location('E')  # 0 radians at the right (east)
+    # ax.set_theta_direction(-1)  # -1 for counterclockwise (mathematical convention)
+
+    # Set custom radian labels in counterclockwise order
+    angles = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi, 5 * np.pi / 4, 3 * np.pi / 2, 7 * np.pi / 4]
+    labels = [
+        '0', '$\\frac{\\pi}{4}$', '$\\frac{\\pi}{2}$', '$\\frac{3\\pi}{4}$', '$\\pi$', '$\\frac{5\\pi}{4}$', '$\\frac{3\\pi}{2}$',
+        '$\\frac{7\\pi}{4}$'
+    ]
+
+    ax.set_xticks(angles)
+    ax.set_xticklabels(labels)
+
+    for curve in curves:
+        theta = curve['theta']
+        r = curve['r']
+        line_color = curve.get('color', 'blue')
+        linestyle = curve.get('linestyle', '-')
+        label = curve.get('label', None)
+
+        ax.plot(theta, r, color=line_color, linestyle=linestyle, label=label)
+
+        # Plot points if specified
+        points = curve.get('points', [])
+        for point in points:
+            theta_val = point['x']  # theta is stored in x
+            r_val = point['y']  # r is stored in y
+            equal = point['equal'] if 'equal' in point else True
+            label = point.get('label', None)
+            point_color = line_color if equal else 'white'
+            marker_edge_color = None if equal else line_color
+
+            ax.plot(theta_val, r_val, 'o', color=point_color, markersize=5, markeredgewidth=1, markeredgecolor=marker_edge_color)
+
+            # Add label if specified
+            if label:
+                ax.annotate(label, xy=(theta_val, r_val), xytext=(5, 5), textcoords='offset points')
+
+    # Set radial limits if specified
+    if limits:
+        ax.set_ylim(limits)
+
+    # Add grid and labels
+    ax.grid(True)
+    plt.title(title)
+
+    # Add legend if any curve has a label
+    has_label = any(map(lambda curve: isinstance(curve.get('label'), str), curves))
+    if has_label:
+        plt.legend(loc='upper right')
+
+    plt.show()
+
+
+def plot_polar_equation(title: str,
+                        equation,
+                        theta_range=(0, 2 * np.pi),
+                        n_points=1000,
+                        limits: Optional[tuple[float, float]] = None,
+                        show_vertices=True,
+                        min_vertex_distance=0.05,
+                        **kwargs):
+    """
+    Plot a polar equation of the form r = f(theta).
+    
+    Args:
+        title (str): Title of the plot
+        equation (callable): Function that takes theta and returns r
+        theta_range (tuple): Range of theta values to plot (start, end)
+        n_points (int): Number of points to plot
+        limits (Optional[tuple[float, float]]): Optional radial limits as (r_min, r_max)
+        show_vertices (bool): If True, find and mark vertices of the curve
+        min_vertex_distance (float): Minimum distance between vertices to avoid duplicates
+        **kwargs: Additional arguments to pass to the plot function (color, linestyle, label)
+    """
+    # Generate theta values
+    theta = np.linspace(theta_range[0], theta_range[1], n_points)
+
+    # Calculate r values
+    r = equation(theta)
+
+    # Create curve dictionary
+    curve = {
+        'theta': theta,
+        'r': r,
+        'color': kwargs.get('color', 'blue'),
+        'linestyle': kwargs.get('linestyle', '-'),
+        'label': kwargs.get('label', None)
+    }
+
+    # Add vertices if requested
+    if show_vertices:
+        # Find vertices of the equation
+        vertices = find_polar_vertices(equation, theta_range, n_points, min_vertex_distance)
+
+        # Add points for vertices
+        vertex_points = []
+        for theta_v, r_v in vertices:
+            # Round r value for display
+            r_v_rounded = round(r_v, 2)
+            point = {
+                'x': theta_v,  # theta is stored in x
+                'y': r_v,  # r is stored in y (original value for accurate plotting)
+                'equal': True,
+                'label': f"({get_pi_fraction_string(theta_v)}, {r_v_rounded})"
+            }
+            vertex_points.append(point)
+
+        curve['points'] = vertex_points
+
+        # Print vertices information
+        print(f"Found {len(vertices)} vertices:")
+        for i, (theta_v, r_v) in enumerate(vertices):
+            # Round r value for display
+            r_v_rounded = round(r_v, 2)
+            print(f"Vertex {i+1}: θ = {get_pi_fraction_string(theta_v)}, r = {r_v_rounded}")
+
+    # Plot the polar curve
+    plot_polar(title, [curve], limits)

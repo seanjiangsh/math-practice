@@ -1,17 +1,19 @@
 import math
+import numpy as np
 import sympy as sp
+from typing import Tuple, List, Union, Callable, Optional
 
 
-def normalize_angle(angle, symbolic=False):
+def normalize_angle(angle: Union[float, sp.Expr], symbolic: bool = False) -> Union[float, sp.Expr]:
     """
     Normalize an angle to its coterminal angle in the range [0, 2π).
     
     Args:
-        angle (float or sympy symbol): The angle in radians
-        symbolic (bool): If True, use sympy for symbolic computation
+        angle: The angle in radians
+        symbolic: If True, use sympy for symbolic computation
         
     Returns:
-        float or sympy expr: The coterminal angle in the range [0, 2π)
+        The coterminal angle in the range [0, 2π)
     """
     if symbolic:
         return sp.Mod(angle, 2 * sp.pi)
@@ -23,19 +25,21 @@ def normalize_angle(angle, symbolic=False):
         return normalized
 
 
-def rectangular_to_polar(x, y, symbolic=False):
+def rectangular_to_polar(x: Union[float, sp.Expr],
+                         y: Union[float, sp.Expr],
+                         symbolic: bool = False) -> Tuple[Union[float, sp.Expr], Union[float, sp.Expr]]:
     """
     Convert rectangular (Cartesian) coordinates to polar coordinates.
     
     Args:
-        x (float or sympy symbol): The x-coordinate in the Cartesian plane
-        y (float or sympy symbol): The y-coordinate in the Cartesian plane
-        symbolic (bool): If True, use sympy for symbolic computation
+        x: The x-coordinate in the Cartesian plane
+        y: The y-coordinate in the Cartesian plane
+        symbolic: If True, use sympy for symbolic computation
         
     Returns:
-        tuple: A tuple containing (r, theta) where:
-            r (float or sympy expr): The radial distance from the origin
-            theta (float or sympy expr): The angle in radians from the positive x-axis
+        A tuple containing (r, theta) where:
+            r: The radial distance from the origin
+            theta: The angle in radians from the positive x-axis
                 (normalized to range [0, 2π))
     """
     if symbolic:
@@ -51,19 +55,21 @@ def rectangular_to_polar(x, y, symbolic=False):
     return r, theta
 
 
-def polar_to_rectangular(r, theta, symbolic=False):
+def polar_to_rectangular(r: Union[float, sp.Expr],
+                         theta: Union[float, sp.Expr],
+                         symbolic: bool = False) -> Tuple[Union[float, sp.Expr], Union[float, sp.Expr]]:
     """
     Convert polar coordinates to rectangular (Cartesian) coordinates.
     
     Args:
-        r (float or sympy symbol): The radial distance from the origin
-        theta (float or sympy symbol): The angle in radians from the positive x-axis
-        symbolic (bool): If True, use sympy for symbolic computation
+        r: The radial distance from the origin
+        theta: The angle in radians from the positive x-axis
+        symbolic: If True, use sympy for symbolic computation
         
     Returns:
-        tuple: A tuple containing (x, y) Cartesian coordinates where:
-            x (float or sympy expr): The x-coordinate in the Cartesian plane
-            y (float or sympy expr): The y-coordinate in the Cartesian plane
+        A tuple containing (x, y) Cartesian coordinates where:
+            x: The x-coordinate in the Cartesian plane
+            y: The y-coordinate in the Cartesian plane
     """
     if symbolic:
         x = r * sp.cos(theta)
@@ -75,41 +81,45 @@ def polar_to_rectangular(r, theta, symbolic=False):
     return x, y
 
 
-def get_coterminal_polar_point(polar_point, symbolic=False):
+def get_coterminal_polar_point(polar_point: Tuple[Union[float, sp.Expr], Union[float, sp.Expr]],
+                               symbolic: bool = False) -> Tuple[Union[float, sp.Expr], Union[float, sp.Expr]]:
     """
     Find the coterminal polar point with angle in the range [0, 2π).
     
     Args:
-        polar_point (tuple): A tuple containing (r, theta) where:
-            r (float or sympy symbol): The radial distance from the origin
-            theta (float or sympy symbol): The angle in radians
-        symbolic (bool): If True, use sympy for symbolic computation
+        polar_point: A tuple containing (r, theta) where:
+            r: The radial distance from the origin
+            theta: The angle in radians
+        symbolic: If True, use sympy for symbolic computation
         
     Returns:
-        tuple: A tuple containing (r, normalized_theta) where:
-            r (float or sympy expr): The same radial distance
-            normalized_theta (float or sympy expr): The coterminal angle in range [0, 2π)
+        A tuple containing (r, normalized_theta) where:
+            r: The same radial distance
+            normalized_theta: The coterminal angle in range [0, 2π)
     """
     r, theta = polar_point
     normalized_theta = normalize_angle(theta, symbolic)
     return r, normalized_theta
 
 
-def find_equivalent_polar_points(polar_point, n_points=5, angle_range=None, symbolic=False):
+def find_equivalent_polar_points(polar_point: Tuple[Union[float, sp.Expr], Union[float, sp.Expr]],
+                                 n_points: int = 5,
+                                 angle_range: Optional[Tuple[Union[float, sp.Expr], Union[float, sp.Expr]]] = None,
+                                 symbolic: bool = False) -> List[Tuple[Union[float, sp.Expr], Union[float, sp.Expr]]]:
     """
     Find equivalent polar points to (r, theta).
     
     Args:
-        polar_point (tuple): A tuple containing (r, theta) where:
-            r (float or sympy symbol): The radial distance from the origin
-            theta (float or sympy symbol): The angle in radians
-        n_points (int): Number of equivalent points to find
-        angle_range (tuple, optional): (min_angle, max_angle) range for the returned angles.
+        polar_point: A tuple containing (r, theta) where:
+            r: The radial distance from the origin
+            theta: The angle in radians
+        n_points: Number of equivalent points to find
+        angle_range: (min_angle, max_angle) range for the returned angles.
             If None, find closest points to angle 0.
-        symbolic (bool): If True, use sympy for symbolic computation
+        symbolic: If True, use sympy for symbolic computation
     
     Returns:
-        list: List of tuples [(r1, theta1), (r2, theta2), ...] of equivalent polar points
+        List of tuples [(r1, theta1), (r2, theta2), ...] of equivalent polar points
               (excluding the original input point)
     """
     r, theta = polar_point
@@ -188,3 +198,104 @@ def find_equivalent_polar_points(polar_point, n_points=5, angle_range=None, symb
 
     results.sort(key=lambda x: x[1])
     return results[:n_points]
+
+
+def find_polar_vertices(equation: Callable[[np.ndarray], np.ndarray],
+                        theta_range: Tuple[float, float] = (0, 2 * np.pi),
+                        n_points: int = 1000,
+                        min_distance: float = 0.05) -> List[Tuple[float, float]]:
+    """
+    Find vertices (local maxima and minima) of a polar equation.
+    
+    Args:
+        equation: Function that takes theta and returns r
+        theta_range: Range of theta to search (default: 0 to 2π)
+        n_points: Number of points to sample for numerical differentiation
+        min_distance: Minimum distance between vertices (to avoid duplicates)
+        
+    Returns:
+        List of (theta, r) tuples representing vertices
+    """
+    # Create theta values for numerical differentiation
+    thetas = np.linspace(theta_range[0], theta_range[1], n_points)
+    delta = (theta_range[1] - theta_range[0]) / n_points
+
+    # Calculate r values
+    rs = equation(thetas)
+
+    # Calculate approximate derivatives using central difference
+    rs_forward = equation(thetas + delta / 2)
+    rs_backward = equation(thetas - delta / 2)
+    derivatives = (rs_forward - rs_backward) / delta
+
+    # Find where derivative changes sign (crosses zero)
+    vertices = []
+    for i in range(1, len(derivatives) - 1):
+        if derivatives[i - 1] * derivatives[i + 1] <= 0:
+            # Found a sign change - this is approximately a vertex
+            theta = thetas[i]
+            r = equation(theta)
+
+            # Normalize theta to be within [0, 2π)
+            theta = theta % (2 * np.pi)
+
+            # Check if this vertex is too close to an existing one
+            is_duplicate = False
+            for existing_theta, existing_r in vertices:
+                # Consider angles that wrap around (near 0 and 2π)
+                theta_diff = min(abs(theta - existing_theta), abs(theta - existing_theta + 2 * np.pi),
+                                 abs(theta - existing_theta - 2 * np.pi))
+                r_diff = abs(r - existing_r)
+
+                # Consider points the same if they're close in both theta and r
+                # Use a relative threshold for r based on its magnitude
+                r_threshold = min_distance * (1 + abs(r))
+                if theta_diff < min_distance and r_diff < r_threshold:
+                    is_duplicate = True
+                    break
+
+            # Only add non-duplicate vertices
+            if not is_duplicate:
+                vertices.append((theta, r))
+
+    # Sort vertices by theta value for consistent output
+    vertices.sort(key=lambda v: v[0])
+
+    return vertices
+
+
+def get_pi_fraction_string(angle: float) -> str:
+    """
+    Convert an angle in radians to a fraction of π as a string.
+    
+    Args:
+        angle: Angle in radians
+        
+    Returns:
+        String representation like "π/4", "π/2", "3π/4", etc.
+    """
+    # Normalize angle to [0, 2π)
+    angle = angle % (2 * np.pi)
+
+    # Special cases
+    if abs(angle) < 0.01:
+        return "0"
+    if abs(angle - np.pi) < 0.01:
+        return "π"
+    if abs(angle - 2 * np.pi) < 0.01:
+        return "2π"
+
+    # Common fractions of π to check
+    fractions = [(np.pi / 6, "π/6"), (np.pi / 4, "π/4"), (np.pi / 3, "π/3"), (np.pi / 2, "π/2"), (2 * np.pi / 3, "2π/3"),
+                 (3 * np.pi / 4, "3π/4"), (5 * np.pi / 6, "5π/6"), (7 * np.pi / 6, "7π/6"), (5 * np.pi / 4, "5π/4"),
+                 (4 * np.pi / 3, "4π/3"), (3 * np.pi / 2, "3π/2"), (5 * np.pi / 3, "5π/3"), (7 * np.pi / 4, "7π/4"),
+                 (11 * np.pi / 6, "11π/6")]
+
+    # Check if angle is close to any common fraction
+    for frac_value, frac_str in fractions:
+        if abs(angle - frac_value) < 0.01:
+            return frac_str
+
+    # If not a common fraction, express in terms of π with 2 decimal places
+    pi_multiple = angle / np.pi
+    return f"{pi_multiple:.2f}π"
