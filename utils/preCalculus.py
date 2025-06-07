@@ -220,12 +220,10 @@ def find_polar_vertices(equation: Callable[[np.ndarray], np.ndarray],
     thetas = np.linspace(theta_range[0], theta_range[1], n_points)
     delta = (theta_range[1] - theta_range[0]) / n_points
 
-    # Calculate r values
-    rs = equation(thetas)
-
-    # Calculate approximate derivatives using central difference
-    rs_forward = equation(thetas + delta / 2)
-    rs_backward = equation(thetas - delta / 2)
+    # Ensure output is always at least 1D array
+    rs = np.atleast_1d(equation(thetas))
+    rs_forward = np.atleast_1d(equation(thetas + delta / 2))
+    rs_backward = np.atleast_1d(equation(thetas - delta / 2))
     derivatives = (rs_forward - rs_backward) / delta
 
     # Find where derivative changes sign (crosses zero)

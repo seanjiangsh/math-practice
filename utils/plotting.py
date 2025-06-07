@@ -373,8 +373,9 @@ def plot_polar_equation(title: str,
     # Generate theta values
     theta = np.linspace(theta_range[0], theta_range[1], n_points)
 
-    # Calculate r values
+    # Calculate r values and ensure it's a 1D array matching theta
     r = equation(theta)
+    r = np.broadcast_to(r, theta.shape)
 
     # Create curve dictionary
     curve = {
