@@ -370,17 +370,34 @@ def plot_polar_equation(title: str,
         min_vertex_distance (float): Minimum distance between vertices to avoid duplicates
         **kwargs: Additional arguments to pass to the plot function (color, linestyle, label)
     """
+
     # Generate theta values
     theta = np.linspace(theta_range[0], theta_range[1], n_points)
-
-    # Calculate r values and ensure it's a 1D array matching theta
     r = equation(theta)
     r = np.broadcast_to(r, theta.shape)
 
+    handle_negative_r = kwargs.pop('handle_negative_r', False)
+    if handle_negative_r:
+        # For rose curves and similar: transform negative r-values
+        theta_pos = theta[r >= 0]
+        r_pos = r[r >= 0]
+        theta_neg = (theta[r < 0] + np.pi) % (2 * np.pi)
+        r_neg = np.abs(r[r < 0])
+        theta_all = np.concatenate([theta_pos, theta_neg])
+        r_all = np.concatenate([r_pos, r_neg])
+        # Sort by theta for a smooth plot
+        sort_idx = np.argsort(theta_all)
+        theta_all = theta_all[sort_idx]
+        r_all = r_all[sort_idx]
+    else:
+        # For general polar equations: plot as-is
+        theta_all = theta
+        r_all = r
+
     # Create curve dictionary
     curve = {
-        'theta': theta,
-        'r': r,
+        'theta': theta_all,
+        'r': r_all,
         'color': kwargs.get('color', 'blue'),
         'linestyle': kwargs.get('linestyle', '-'),
         'label': kwargs.get('label', None)
@@ -391,27 +408,63 @@ def plot_polar_equation(title: str,
         # Find vertices of the equation
         vertices = find_polar_vertices(equation, theta_range, n_points, min_vertex_distance)
 
-        # Add points for vertices
         vertex_points = []
+
+        # Use a set of rounded (theta, r) tuples for duplicate detection
+        def rounded_tuple(theta, r):
+            return (round(theta % (2 * np.pi), 2), round(r, 2))
+
+        marked_set = set()
+
+        def is_duplicate(theta1, r1):
+            return rounded_tuple(theta1, r1) in marked_set
+
         for theta_v, r_v in vertices:
-            # Round r value for display
             r_v_rounded = round(r_v, 2)
-            point = {
-                'x': theta_v,  # theta is stored in x
-                'y': r_v,  # r is stored in y (original value for accurate plotting)
-                'equal': True,
-                'label': f"({get_pi_fraction_string(theta_v)}, {r_v_rounded})"
-            }
-            vertex_points.append(point)
+            orig_tuple = rounded_tuple(theta_v, r_v)
+            marked_original = False
+            if orig_tuple not in marked_set:
+                # print(f"Marking original: θ = {theta_v:.6f} (mod {theta_v % (2 * np.pi):.6f}), r = {r_v:.6f}")
+                point = {'x': theta_v, 'y': r_v, 'equal': True, 'label': f"({get_pi_fraction_string(theta_v)}, {r_v_rounded})"}
+                vertex_points.append(point)
+                marked_set.add(orig_tuple)
+                marked_original = True
+            else:
+                # print(f"Duplicate original: θ = {theta_v:.6f} (mod {theta_v % (2 * np.pi):.6f}), r = {r_v:.6f}")
+                pass
+
+            # If handle_negative_r is True and r_v < 0, also mark the transformed point, but only if not duplicate
+            if handle_negative_r and r_v < 0:
+                theta_neg = (theta_v + np.pi) % (2 * np.pi)
+                r_neg = abs(r_v)
+                trans_tuple = rounded_tuple(theta_neg, r_neg)
+                if trans_tuple not in marked_set:
+                    # print(f"Marking transformed: θ = {theta_neg:.6f} (mod {theta_neg % (2 * np.pi):.6f}), r = {r_neg:.6f}")
+                    point_neg = {
+                        'x': theta_neg,
+                        'y': r_neg,
+                        'equal': False,
+                        'label': f"({get_pi_fraction_string(theta_neg)}, {round(r_neg, 2)})"
+                    }
+                    vertex_points.append(point_neg)
+                    marked_set.add(trans_tuple)
+                else:
+                    # print(f"Duplicate transformed: θ = {theta_neg:.6f} (mod {theta_neg % (2 * np.pi):.6f}), r = {r_neg:.6f}")
+                    pass
 
         curve['points'] = vertex_points
 
         # Print vertices information
         print(f"Found {len(vertices)} vertices:")
         for i, (theta_v, r_v) in enumerate(vertices):
-            # Round r value for display
             r_v_rounded = round(r_v, 2)
             print(f"Vertex {i+1}: θ = {get_pi_fraction_string(theta_v)}, r = {r_v_rounded}")
+        if handle_negative_r:
+            for i, (theta_v, r_v) in enumerate(vertices):
+                if r_v < 0:
+                    theta_neg = (theta_v + np.pi) % (2 * np.pi)
+                    r_neg = abs(r_v)
+                    print(f"  (Also marks: θ = {get_pi_fraction_string(theta_neg)}, r = {round(r_neg, 2)}) as negative equivalent")
 
     # Plot the polar curve
     plot_polar(title, [curve], limits)
