@@ -282,31 +282,60 @@ def get_segment_lines_by_peaks(x: ndarray[float], y: ndarray[float], threshold=N
     return lines
 
 
-def plot_polar(title: str, curves: list[PolarCurveDict], limits: Optional[tuple[float, float]] = None):
+def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optional[tuple[float, float]] = None):
     """
-    Plot curves in polar coordinates using radians.
+    Plot polar curves by converting to cartesian coordinates.
+    This completely avoids matplotlib's polar plot auto-fill behavior.
     
     Args:
         title (str): Title of the plot
         curves (list[PolarCurveDict]): List of polar curves to plot
         limits (Optional[tuple[float, float]]): Optional radial limits as (r_min, r_max)
     """
-    plt.figure(figsize=(8, 8))
-    ax = plt.subplot(projection='polar')
+    plt.close('all')
+    fig, ax = plt.subplots(figsize=(8, 8))
 
-    # Set to counterclockwise direction with east as zero location
-    # ax.set_theta_zero_location('E')  # 0 radians at the right (east)
-    # ax.set_theta_direction(-1)  # -1 for counterclockwise (mathematical convention)
+    # Make the plot square and centered
+    ax.set_aspect('equal')
 
-    # Set custom radian labels in counterclockwise order
-    angles = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi, 5 * np.pi / 4, 3 * np.pi / 2, 7 * np.pi / 4]
-    labels = [
-        '0', '$\\frac{\\pi}{4}$', '$\\frac{\\pi}{2}$', '$\\frac{3\\pi}{4}$', '$\\pi$', '$\\frac{5\\pi}{4}$', '$\\frac{3\\pi}{2}$',
-        '$\\frac{7\\pi}{4}$'
-    ]
+    # Set up grid circles and angle lines to mimic polar plot
+    max_r = 0
+    for curve in curves:
+        max_r = max(max_r, np.max(np.abs(curve['r'])))
 
-    ax.set_xticks(angles)
-    ax.set_xticklabels(labels)
+    if limits:
+        max_r = max(max_r, abs(limits[1]) if limits[1] else max_r)
+
+    max_r = max_r + 1  # Add some padding    # Draw grid circles and add radial labels
+    radial_values = np.linspace(0, max_r, 6)[1:]  # Skip 0
+    for i, r in enumerate(radial_values):
+        circle = plt.Circle((0, 0), r, fill=False, color='gray', alpha=0.3, linewidth=0.5)
+        ax.add_patch(circle)
+
+        # Add radial labels along the positive x-axis
+        if r > 0:
+            ax.text(r, 0.1, f'{r:.1f}', ha='center', va='bottom', fontsize=9, color='gray')  # Draw angle lines for the main directions only
+    main_angles = [0, np.pi / 2, np.pi, 3 * np.pi / 2]  # 0°, 90°, 180°, 270°
+    for angle in main_angles:
+        x_line = [0, max_r * np.cos(angle)]
+        y_line = [0, max_r * np.sin(angle)]
+        ax.plot(x_line, y_line, color='gray', alpha=0.5, linewidth=0.8)  # Add theta tick labels at the cardinal directions
+    label_radius = max_r + 0.3  # Position labels slightly outside the grid
+    theta_labels = [(0, label_radius * np.cos(0), label_radius * np.sin(0), '0'),
+                    (np.pi / 2, label_radius * np.cos(np.pi / 2), label_radius * np.sin(np.pi / 2), '$\\frac{\\pi}{2}$'),
+                    (np.pi, label_radius * np.cos(np.pi), label_radius * np.sin(np.pi), '$\\pi$'),
+                    (3 * np.pi / 2, label_radius * np.cos(3 * np.pi / 2), label_radius * np.sin(3 * np.pi / 2), '$\\frac{3\\pi}{2}$')]
+
+    for angle, x_pos, y_pos, label_text in theta_labels:
+        ax.text(x_pos, y_pos, label_text, ha='center', va='center', fontsize=11, fontweight='bold')
+
+    # Remove axis ticks and labels
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
 
     for curve in curves:
         theta = curve['theta']
@@ -315,7 +344,12 @@ def plot_polar(title: str, curves: list[PolarCurveDict], limits: Optional[tuple[
         linestyle = curve.get('linestyle', '-')
         label = curve.get('label', None)
 
-        ax.plot(theta, r, color=line_color, linestyle=linestyle, label=label)
+        # Convert polar to cartesian coordinates
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+
+        # Plot the curve - this guarantees no auto-fill
+        ax.plot(x, y, color=line_color, linestyle=linestyle, label=label, linewidth=1.5)
 
         # Plot points if specified
         points = curve.get('points', [])
@@ -323,148 +357,102 @@ def plot_polar(title: str, curves: list[PolarCurveDict], limits: Optional[tuple[
             theta_val = point['x']  # theta is stored in x
             r_val = point['y']  # r is stored in y
             equal = point['equal'] if 'equal' in point else True
-            label = point.get('label', None)
+            point_label = point.get('label', None)
             point_color = line_color if equal else 'white'
             marker_edge_color = None if equal else line_color
 
-            ax.plot(theta_val, r_val, 'o', color=point_color, markersize=5, markeredgewidth=1, markeredgecolor=marker_edge_color)
+            # Convert point to cartesian
+            x_point = r_val * np.cos(theta_val)
+            y_point = r_val * np.sin(theta_val)
+
+            ax.plot(x_point, y_point, 'o', color=point_color, markersize=5, markeredgewidth=1, markeredgecolor=marker_edge_color)
 
             # Add label if specified
-            if label:
-                ax.annotate(label, xy=(theta_val, r_val), xytext=(5, 5), textcoords='offset points')
+            if point_label:
+                ax.annotate(point_label, xy=(x_point, y_point), xytext=(5, 5), textcoords='offset points')
 
-    # Set radial limits if specified
+    # Set limits
     if limits:
-        ax.set_ylim(limits)
+        ax.set_xlim(-limits[1], limits[1])
+        ax.set_ylim(-limits[1], limits[1])
+    else:
+        ax.set_xlim(-max_r, max_r)
+        ax.set_ylim(-max_r, max_r)
 
-    # Add grid and labels
-    ax.grid(True)
-    plt.title(title)
-
-    # Add legend if any curve has a label
-    has_label = any(map(lambda curve: isinstance(curve.get('label'), str), curves))
+    # Add origin marker
+    ax.plot(0, 0, 'ko', markersize=3)  # Add title and legend
+    # Center the title at the top with enough space to avoid π/2 label
+    plt.suptitle(title, x=0.5, y=0.95, ha='center', va='top', fontsize=14, fontweight='bold')
+    has_label = any(curve.get('label') for curve in curves)
     if has_label:
         plt.legend(loc='upper right')
 
     plt.show()
 
 
-def plot_polar_equation(title: str,
-                        equation,
-                        theta_range=(0, 2 * np.pi),
-                        n_points=1000,
-                        limits: Optional[tuple[float, float]] = None,
-                        show_vertices=True,
-                        min_vertex_distance=0.05,
-                        **kwargs):
+def plot_polar_equation(title: str, equation, n_points=1000, show_vertices=True, min_vertex_distance=0.05, **kwargs):
     """
     Plot a polar equation of the form r = f(theta).
     
     Args:
         title (str): Title of the plot
         equation (callable): Function that takes theta and returns r
-        theta_range (tuple): Range of theta values to plot (start, end)
         n_points (int): Number of points to plot
-        limits (Optional[tuple[float, float]]): Optional radial limits as (r_min, r_max)
         show_vertices (bool): If True, find and mark vertices of the curve
         min_vertex_distance (float): Minimum distance between vertices to avoid duplicates
         **kwargs: Additional arguments to pass to the plot function (color, linestyle, label)
-    """
-
-    # Generate theta values
-    theta = np.linspace(theta_range[0], theta_range[1], n_points)
+    """# Generate theta values
+    theta = np.linspace(0, 2 * np.pi, n_points)
     r = equation(theta)
     r = np.broadcast_to(r, theta.shape)
 
-    handle_negative_r = kwargs.pop('handle_negative_r', False)
-    if handle_negative_r:
-        # For rose curves and similar: transform negative r-values
-        theta_pos = theta[r >= 0]
-        r_pos = r[r >= 0]
-        theta_neg = (theta[r < 0] + np.pi) % (2 * np.pi)
-        r_neg = np.abs(r[r < 0])
-        theta_all = np.concatenate([theta_pos, theta_neg])
-        r_all = np.concatenate([r_pos, r_neg])
-        # Sort by theta for a smooth plot
-        sort_idx = np.argsort(theta_all)
-        theta_all = theta_all[sort_idx]
-        r_all = r_all[sort_idx]
-    else:
-        # For general polar equations: plot as-is
-        theta_all = theta
-        r_all = r
-
     # Create curve dictionary
     curve = {
-        'theta': theta_all,
-        'r': r_all,
+        'theta': theta,
+        'r': r,
         'color': kwargs.get('color', 'blue'),
         'linestyle': kwargs.get('linestyle', '-'),
         'label': kwargs.get('label', None)
-    }
-
-    # Add vertices if requested
-    if show_vertices:
-        # Find vertices of the equation
-        vertices = find_polar_vertices(equation, theta_range, n_points, min_vertex_distance)
+    }  # Add vertices if requested
+    if show_vertices:  # Find vertices of the equation
+        vertices = find_polar_vertices(equation, (0, 2 * np.pi), n_points, min_vertex_distance)
 
         vertex_points = []
 
-        # Use a set of rounded (theta, r) tuples for duplicate detection
-        def rounded_tuple(theta, r):
-            return (round(theta % (2 * np.pi), 2), round(r, 2))
+        # Use a more sophisticated approach for duplicate detection that considers
+        # both polar coordinates and their cartesian equivalents
+        def cartesian_tuple(theta, r):
+            """Convert to cartesian and round for duplicate detection"""
+            x = r * np.cos(theta)
+            y = r * np.sin(theta)
+            return (round(x, 1), round(y, 1))  # Use coarser precision for cartesian coordinates
 
-        marked_set = set()
-
-        def is_duplicate(theta1, r1):
-            return rounded_tuple(theta1, r1) in marked_set
+        marked_cartesian_set = set()
 
         for theta_v, r_v in vertices:
             r_v_rounded = round(r_v, 2)
-            orig_tuple = rounded_tuple(theta_v, r_v)
-            marked_original = False
-            if orig_tuple not in marked_set:
-                # print(f"Marking original: θ = {theta_v:.6f} (mod {theta_v % (2 * np.pi):.6f}), r = {r_v:.6f}")
+
+            # Convert to cartesian for duplicate detection
+            cart_tuple = cartesian_tuple(theta_v, r_v)
+
+            # Only add the point if we haven't already marked this cartesian location
+            if cart_tuple not in marked_cartesian_set:
                 point = {'x': theta_v, 'y': r_v, 'equal': True, 'label': f"({get_pi_fraction_string(theta_v)}, {r_v_rounded})"}
                 vertex_points.append(point)
-                marked_set.add(orig_tuple)
-                marked_original = True
-            else:
-                # print(f"Duplicate original: θ = {theta_v:.6f} (mod {theta_v % (2 * np.pi):.6f}), r = {r_v:.6f}")
-                pass
+                marked_cartesian_set.add(cart_tuple)
 
-            # If handle_negative_r is True and r_v < 0, also mark the transformed point, but only if not duplicate
-            if handle_negative_r and r_v < 0:
-                theta_neg = (theta_v + np.pi) % (2 * np.pi)
-                r_neg = abs(r_v)
-                trans_tuple = rounded_tuple(theta_neg, r_neg)
-                if trans_tuple not in marked_set:
-                    # print(f"Marking transformed: θ = {theta_neg:.6f} (mod {theta_neg % (2 * np.pi):.6f}), r = {r_neg:.6f}")
-                    point_neg = {
-                        'x': theta_neg,
-                        'y': r_neg,
-                        'equal': False,
-                        'label': f"({get_pi_fraction_string(theta_neg)}, {round(r_neg, 2)})"
-                    }
-                    vertex_points.append(point_neg)
-                    marked_set.add(trans_tuple)
-                else:
-                    # print(f"Duplicate transformed: θ = {theta_neg:.6f} (mod {theta_neg % (2 * np.pi):.6f}), r = {r_neg:.6f}")
-                    pass
+        curve['points'] = vertex_points  # Print vertices information (but filter to only show unique cartesian points)
+        unique_vertices = []
+        seen_cartesian = set()
+        for theta_v, r_v in vertices:
+            cart_tuple = cartesian_tuple(theta_v, r_v)
+            if cart_tuple not in seen_cartesian:
+                unique_vertices.append((theta_v, r_v))
+                seen_cartesian.add(cart_tuple)
 
-        curve['points'] = vertex_points
-
-        # Print vertices information
-        print(f"Found {len(vertices)} vertices:")
-        for i, (theta_v, r_v) in enumerate(vertices):
+        print(f"Found {len(unique_vertices)} vertices:")
+        for i, (theta_v, r_v) in enumerate(unique_vertices):
             r_v_rounded = round(r_v, 2)
-            print(f"Vertex {i+1}: θ = {get_pi_fraction_string(theta_v)}, r = {r_v_rounded}")
-        if handle_negative_r:
-            for i, (theta_v, r_v) in enumerate(vertices):
-                if r_v < 0:
-                    theta_neg = (theta_v + np.pi) % (2 * np.pi)
-                    r_neg = abs(r_v)
-                    print(f"  (Also marks: θ = {get_pi_fraction_string(theta_neg)}, r = {round(r_neg, 2)}) as negative equivalent")
-
-    # Plot the polar curve
-    plot_polar(title, [curve], limits)
+            print(f"Vertex {i+1}: θ = {get_pi_fraction_string(theta_v)}, r = {r_v_rounded}"
+                 )  # Plot the polar curve using cartesian coordinates
+    plot_polar_cartesian(title, [curve], None)
