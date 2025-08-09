@@ -296,17 +296,22 @@ def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optio
     fig, ax = plt.subplots(figsize=(8, 8))
 
     # Make the plot square and centered
-    ax.set_aspect('equal')
-
-    # Set up grid circles and angle lines to mimic polar plot
+    ax.set_aspect('equal')  # Set up grid circles and angle lines to mimic polar plot
     max_r = 0
     for curve in curves:
-        max_r = max(max_r, np.max(np.abs(curve['r'])))
+        # Handle NaN values properly by using nanmax
+        valid_r = curve['r'][~np.isnan(curve['r'])]
+        if len(valid_r) > 0:
+            max_r = max(max_r, np.max(np.abs(valid_r)))
 
     if limits:
         max_r = max(max_r, abs(limits[1]) if limits[1] else max_r)
 
-    max_r = max_r + 1  # Add some padding    # Draw grid circles and add radial labels
+    # Ensure we have a reasonable minimum max_r
+    if max_r == 0:
+        max_r = 5
+
+    max_r = max_r + 1  # Add some padding# Draw grid circles and add radial labels
     radial_values = np.linspace(0, max_r, 6)[1:]  # Skip 0
     for i, r in enumerate(radial_values):
         circle = plt.Circle((0, 0), r, fill=False, color='gray', alpha=0.3, linewidth=0.5)
@@ -342,14 +347,40 @@ def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optio
         r = curve['r']
         line_color = curve.get('color', 'blue')
         linestyle = curve.get('linestyle', '-')
-        label = curve.get('label', None)
-
-        # Convert polar to cartesian coordinates
+        label = curve.get('label', None)  # Convert polar to cartesian coordinates
         x = r * np.cos(theta)
         y = r * np.sin(theta)
 
-        # Plot the curve - this guarantees no auto-fill
-        ax.plot(x, y, color=line_color, linestyle=linestyle, label=label, linewidth=1.5)
+        # Remove NaN values to avoid broken line segments
+        valid_mask = ~(np.isnan(x) | np.isnan(y))
+        if np.any(valid_mask):
+            x_valid = x[valid_mask]
+            y_valid = y[valid_mask]
+
+            # For curves with gaps (like lemniscates), we need to split at NaN boundaries
+            # to avoid connecting distant points
+            if not np.all(valid_mask):
+                # Find groups of consecutive valid points
+                diff = np.diff(np.concatenate(([False], valid_mask, [False])).astype(int))
+                starts = np.where(diff == 1)[0]
+                ends = np.where(diff == -1)[0]
+
+                # Plot each continuous segment separately
+                for start, end in zip(starts, ends):
+                    x_segment = x[start:end]
+                    y_segment = y[start:end]
+                    ax.plot(x_segment,
+                            y_segment,
+                            color=line_color,
+                            linestyle=linestyle,
+                            label=label if start == starts[0] else None,
+                            linewidth=1.5)
+            else:
+                # Plot the entire curve normally
+                ax.plot(x_valid, y_valid, color=line_color, linestyle=linestyle, label=label, linewidth=1.5)
+        else:
+            # All values are NaN, skip plotting
+            pass
 
         # Plot points if specified
         points = curve.get('points', [])
