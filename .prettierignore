@@ -1,0 +1,11 @@
+# Exclude Markdown files from Prettier formatting
+*.md
+**/*.md
+
+# Common directories to ignore
+node_modules/
+.git/
+venv/
+__pycache__/
+.vscode/
+*.pyc

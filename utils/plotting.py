@@ -82,7 +82,13 @@ def setup_plot(limits: LimitDict = None) -> None:
         plt.gca().set_yticks(np.arange(-10, 11, 5), minor=False)
 
 
-def plot_lines(title: str, lines: list[LineDict], fills: list[FillBetweenDict] = None, limits: LimitDict = None):
+def plot_lines(title: str,
+               lines: list[LineDict],
+               fills: list[FillBetweenDict] = None,
+               limits: LimitDict = None,
+               xlabel: str = 'x',
+               ylabel: str = 'y',
+               other_points: list[PointDict] = None):
     plt.figure(figsize=(6, 6))
     setup_plot(limits)
 
@@ -108,6 +114,20 @@ def plot_lines(title: str, lines: list[LineDict], fills: list[FillBetweenDict] =
             if label:
                 plt.annotate(label, xy=(x, y), xytext=(5, 5), textcoords='offset points')
 
+    # Plot other_points (independent of lines)
+    if other_points is not None:
+        for point in other_points:
+            x = point['x']
+            y = point['y']
+            equal = point['equal'] if 'equal' in point else True
+            label = point.get('label', None)
+            point_color = 'blue' if equal else 'white'  # Default color for other_points
+            marker_edge_color = None if equal else 'red'
+            plt.plot(x, y, 'o', color=point_color, markersize=5, markeredgewidth=1, markeredgecolor=marker_edge_color)
+            # Annotate each point with a label
+            if label:
+                plt.annotate(label, xy=(x, y), xytext=(5, 5), textcoords='offset points')
+
     # Plot fills
     if fills is not None:
         for fill in fills:
@@ -118,8 +138,9 @@ def plot_lines(title: str, lines: list[LineDict], fills: list[FillBetweenDict] =
             fill_color = fill.get('color', 'lightblue')
             plt.fill_between(x, y1, y2, where, color=fill_color, alpha=0.5)
 
-    plt.xlabel('x')
-    plt.ylabel('y', rotation=0)
+    # Set custom axis labels
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel, rotation=0)
     plt.title(title)
 
     # Check if any line has a label and add legend if true
