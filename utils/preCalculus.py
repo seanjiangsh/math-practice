@@ -297,3 +297,186 @@ def get_pi_fraction_string(angle: float) -> str:
     # If not a common fraction, express in terms of π with 2 decimal places
     pi_multiple = angle / np.pi
     return f"{pi_multiple:.2f}π"
+
+
+def gauss_jordan_elimination(matrix: Union[List[List[float]], np.ndarray], tolerance: float = 1e-10) -> Tuple[np.ndarray, str]:
+    """
+    Perform Gauss-Jordan elimination to solve a system of linear equations.
+    
+    Args:
+        matrix: Augmented matrix [A|b] where A is the coefficient matrix and b is the constants vector.
+                Can be a list of lists or numpy array.
+        tolerance: Numerical tolerance for considering values as zero
+        
+    Returns:
+        Tuple containing:
+            - Reduced row echelon form (RREF) matrix
+            - Solution status: "unique", "no_solution", or "infinite_solutions"
+    """
+    # Convert to numpy array for easier manipulation
+    if isinstance(matrix, list):
+        A = np.array(matrix, dtype=float)
+    else:
+        A = matrix.astype(float)
+
+    rows, cols = A.shape
+
+    # Track which columns contain pivot elements
+    pivot_cols = []
+
+    for row in range(rows):
+        # Find the pivot column (first non-zero element in current row)
+        pivot_col = None
+        for col in range(cols - 1):  # Don't include the augmented column
+            if abs(A[row, col]) > tolerance:
+                pivot_col = col
+                break
+
+        if pivot_col is None:
+            # Current row is all zeros (except possibly the augmented part)
+            if abs(A[row, -1]) > tolerance:
+                # Inconsistent system: 0 = non-zero
+                return A, "no_solution"
+            continue
+
+        pivot_cols.append(pivot_col)
+
+        # Make the pivot element 1
+        pivot_element = A[row, pivot_col]
+        A[row, :] = A[row, :] / pivot_element
+
+        # Eliminate all other elements in the pivot column
+        for other_row in range(rows):
+            if other_row != row and abs(A[other_row, pivot_col]) > tolerance:
+                multiplier = A[other_row, pivot_col]
+                A[other_row, :] = A[other_row, :] - multiplier * A[row, :]
+
+    # Clean up small values that should be zero
+    A[np.abs(A) < tolerance] = 0
+
+    # Determine solution type
+    num_variables = cols - 1
+    num_pivots = len(pivot_cols)
+
+    # Check for inconsistent system
+    for row in range(num_pivots, rows):
+        if abs(A[row, -1]) > tolerance:
+            return A, "no_solution"
+
+    if num_pivots == num_variables:
+        return A, "unique"
+    else:
+        return A, "infinite_solutions"
+
+
+def solve_linear_system(matrix: Union[List[List[float]], np.ndarray],
+                        variable_names: Optional[List[str]] = None,
+                        tolerance: float = 1e-10) -> dict:
+    """
+    Solve a system of linear equations and return the solution in a readable format.
+    
+    Args:
+        matrix: Augmented matrix [A|b]
+        variable_names: Names for the variables (e.g., ['x', 'y', 'z'])
+        tolerance: Numerical tolerance for considering values as zero
+        
+    Returns:
+        Dictionary containing:
+            - 'rref': The reduced row echelon form matrix
+            - 'status': Solution status
+            - 'solution': The solution (if unique) or description of solution set
+            - 'free_variables': List of free variables (if infinite solutions)
+    """
+    rref_matrix, status = gauss_jordan_elimination(matrix, tolerance)
+
+    rows, cols = rref_matrix.shape
+    num_variables = cols - 1
+
+    # Generate default variable names if not provided
+    if variable_names is None:
+        if num_variables <= 3:
+            variable_names = ['x', 'y', 'z'][:num_variables]
+        else:
+            variable_names = [f'x{i+1}' for i in range(num_variables)]
+
+    result = {'rref': rref_matrix, 'status': status, 'solution': None, 'free_variables': []}
+
+    if status == "no_solution":
+        result['solution'] = "No solution exists (inconsistent system)"
+        return result
+
+    if status == "unique":
+        # Extract the unique solution
+        solution = {}
+        for i, var_name in enumerate(variable_names):
+            # Find the row with pivot in column i
+            for row in range(rows):
+                if abs(rref_matrix[row, i]) > tolerance and abs(rref_matrix[row, i] - 1) < tolerance:
+                    # Check if this is indeed a pivot (all other elements in row are 0 except augmented part)
+                    is_pivot = True
+                    for col in range(num_variables):
+                        if col != i and abs(rref_matrix[row, col]) > tolerance:
+                            is_pivot = False
+                            break
+                    if is_pivot:
+                        solution[var_name] = rref_matrix[row, -1]
+                        break
+            if var_name not in solution:
+                solution[var_name] = 0  # Free variable set to 0
+
+        result['solution'] = solution
+        return result
+
+    if status == "infinite_solutions":
+        # Identify pivot and free variables
+        pivot_vars = []
+        free_vars = []
+
+        # Find pivot columns
+        pivot_columns = []
+        for row in range(rows):
+            for col in range(num_variables):
+                if abs(rref_matrix[row, col] - 1) < tolerance:
+                    # Check if this is a pivot
+                    is_pivot = True
+                    for other_col in range(col):
+                        if abs(rref_matrix[row, other_col]) > tolerance:
+                            is_pivot = False
+                            break
+                    if is_pivot and col not in pivot_columns:
+                        pivot_columns.append(col)
+                        pivot_vars.append(variable_names[col])
+                        break
+
+        for i, var_name in enumerate(variable_names):
+            if i not in pivot_columns:
+                free_vars.append(var_name)
+
+        result['free_variables'] = free_vars
+
+        # Express pivot variables in terms of free variables
+        solution_expressions = {}
+        for row in range(len(pivot_columns)):
+            pivot_col = pivot_columns[row]
+            pivot_var = variable_names[pivot_col]
+
+            # Build expression: pivot_var = constant + sum(coefficient * free_var)
+            constant = rref_matrix[row, -1]
+            coefficients = {}
+
+            for col in range(num_variables):
+                if col != pivot_col and abs(rref_matrix[row, col]) > tolerance:
+                    var_name = variable_names[col]
+                    coefficients[var_name] = -rref_matrix[row, col]  # Negative because we move to RHS
+
+            expression = f"{pivot_var} = {constant:.3f}"
+            for var_name, coeff in coefficients.items():
+                if coeff >= 0:
+                    expression += f" + {coeff:.3f}*{var_name}"
+                else:
+                    expression += f" - {abs(coeff):.3f}*{var_name}"
+
+            solution_expressions[pivot_var] = expression
+
+        result['solution'] = solution_expressions
+        return result
