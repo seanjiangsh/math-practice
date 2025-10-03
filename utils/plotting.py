@@ -159,17 +159,15 @@ def get_slope_intercept_points(slope: float, intercept=0):
 
 
 class GeometryLineDict(TypedDict):
-    x: ndarray[float]
-    y: ndarray[float]
+    coordinates: ndarray[float]  # Shape (n, 2) where each row is [x, y]
     color: Optional[str]
-    points: Optional[list[str]]
-    labels: Optional[str]
+    point_labels: Optional[list[str]]
+    label: Optional[str]
 
 
 class PolygonDict(TypedDict):
-    x: ndarray[float]
-    y: ndarray[float]
-    points: list[str]
+    coordinates: ndarray[float]  # Shape (n, 2) where each row is [x, y]
+    point_labels: list[str]
     color: Optional[str]
     label: Optional[str]
 
@@ -183,14 +181,15 @@ def plot_geometry(title: str, lines: list[GeometryLineDict] = None, polygons: li
 
     if lines is not None:
         for line in lines:
-            x = line['x']
-            y = line['y']
+            coords = line['coordinates']
+            x = coords[:, 0]  # Extract x coordinates
+            y = coords[:, 1]  # Extract y coordinates
             line_color = line.get('color', 'blue')
-            labels = line.get('labels', None)
-            plt.plot(x, y, 'o-', color=line_color, markersize=5, label=labels)
+            label = line.get('label', None)
+            plt.plot(x, y, 'o-', color=line_color, markersize=5, label=label)
 
             # Plot point texts
-            point_texts = line.get('points', [])
+            point_texts = line.get('point_labels', [])
             for i, text in enumerate(point_texts):
                 plt.text(x[i] + POINT_TEXT_OFFSET, y[i] + POINT_TEXT_OFFSET, text)
 
@@ -215,9 +214,15 @@ def plot_geometry(title: str, lines: list[GeometryLineDict] = None, polygons: li
 
 
 def add_polygon(polygon: PolygonDict):
-    x = np.append(polygon['x'], polygon['x'][0])
-    y = np.append(polygon['y'], polygon['y'][0])
-    points = polygon['points']
+    coords = polygon['coordinates']
+    x = coords[:, 0]  # Extract x coordinates
+    y = coords[:, 1]  # Extract y coordinates
+
+    # Close the polygon by adding the first point at the end
+    x = np.append(x, x[0])
+    y = np.append(y, y[0])
+
+    point_labels = polygon['point_labels']
     line_color = polygon.get('color', 'blue')
     fill_color = polygon.get('color', 'lightblue')
     label = polygon.get('label', None)
@@ -225,8 +230,8 @@ def add_polygon(polygon: PolygonDict):
     # Plot the polygon edges
     plt.plot(x, y, 'o-', color=line_color, markersize=5)
 
-    # Plot point texts
-    for i, txt in enumerate(points):
+    # Plot point texts (don't include the repeated first point)
+    for i, txt in enumerate(point_labels):
         plt.text(x[i] + POINT_TEXT_OFFSET, y[i] + POINT_TEXT_OFFSET, txt, fontsize=12)
 
     # Fill the polygon
