@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import sympy as sp
+from sympy import symbols, apart, sympify
 from typing import Tuple, List, Union, Callable, Optional
 
 
@@ -480,3 +481,26 @@ def solve_linear_system(matrix: Union[List[List[float]], np.ndarray],
 
         result['solution'] = solution_expressions
         return result
+
+
+def partial_fractions_decomposition(numerator, denominator, variable='x'):
+    """
+    Decompose a rational function into partial fractions.
+    
+    Args:
+        numerator: str or sympy expression for the numerator
+        denominator: str or sympy expression for the denominator  
+        variable: str, the variable used (default 'x')
+        
+    Returns:
+        sympy expression of the partial fraction decomposition
+        
+    Example:
+        >>> solve_partial_fractions("2*x-3", "x*(x+2)*(x-3)**2*(2*x**2+5)**2")
+        # Returns the partial fraction decomposition
+    """
+    x = symbols(variable)
+    num = sympify(numerator)
+    denom = sympify(denominator)
+    expr = num / denom
+    return apart(expr, x)
