@@ -1,9 +1,11 @@
 # Type definitions
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 import sympy as sp
 import math
+import re
 from scipy.signal import find_peaks
 
 from numpy import ndarray
@@ -513,3 +515,117 @@ def plot_polar_equation(title: str, equation, n_points=1000, show_vertices=True,
             print(f"Vertex {i+1}: θ = {get_pi_fraction_string(theta_v)}, r = {r_v_rounded}"
                  )  # Plot the polar curve using cartesian coordinates
     plot_polar_cartesian(title, [curve], None)
+
+
+def plot_circle(h: float, k: float, r: float, limits: LimitDict = None, title: str = None):
+    """
+    Plot a circle with center (h, k) and radius r
+    
+    Args:
+        h (float): x-coordinate of center
+        k (float): y-coordinate of center  
+        r (float): radius
+        limits (LimitDict): Optional plot limits
+        title (str): Optional custom title
+    """
+    # Create the plot
+    plt.figure(figsize=(8, 6))
+    setup_plot(limits)
+
+    # Create circle patch
+    circle = patches.Circle((h, k), r, fill=False, edgecolor='blue', linewidth=2)
+    plt.gca().add_patch(circle)
+
+    # Mark center
+    plt.scatter([h], [k], color='red', s=50, zorder=5)
+    plt.annotate(f'Center ({h}, {k})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    # Set equal aspect ratio to ensure circle appears circular
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        plt.title(f'Circle: Center ({h}, {k}), Radius {r}')
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.show()
+
+
+def plot_ellipse(h: float, k: float, a: float, b: float, limits: LimitDict = None, title: str = None):
+    """
+    Plot an ellipse with center (h, k) and semi-axes a and b
+    
+    Args:
+        h (float): x-coordinate of center
+        k (float): y-coordinate of center
+        a (float): semi-major axis length (horizontal)
+        b (float): semi-minor axis length (vertical)
+        limits (LimitDict): Optional plot limits
+        title (str): Optional custom title
+    """
+    # Create the plot
+    plt.figure(figsize=(8, 6))
+    setup_plot(limits)
+
+    # Create ellipse patch (width=2*a, height=2*b)
+    ellipse = patches.Ellipse((h, k), width=2 * a, height=2 * b, fill=False, edgecolor='blue', linewidth=2)
+    plt.gca().add_patch(ellipse)
+
+    # Mark center
+    plt.scatter([h], [k], color='red', s=50, zorder=5)
+    plt.annotate(f'Center ({h}, {k})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    # Calculate foci distance from center
+    # For ellipse: c² = |major_axis² - minor_axis²|
+    if a > b:  # Horizontal ellipse (major axis is horizontal)
+        c = math.sqrt(a**2 - b**2)  # Distance from center to each focus
+
+        # Mark vertices at (h±a, k)
+        plt.scatter([h - a, h + a], [k, k], color='green', s=30, zorder=5)
+        plt.annotate(f'Vertex ({h-a:.1f}, {k})', xy=(h - a, k), xytext=(-10, 10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h+a:.1f}, {k})', xy=(h + a, k), xytext=(10, 10), textcoords='offset points', fontsize=8)
+
+        # Mark foci at (h±c, k)
+        plt.scatter([h - c, h + c], [k, k], color='orange', s=40, marker='x', zorder=5)
+        plt.annotate(f'Focus ({h-c:.1f}, {k})', xy=(h - c, k), xytext=(-10, -15), textcoords='offset points', fontsize=8, color='orange')
+        plt.annotate(f'Focus ({h+c:.1f}, {k})', xy=(h + c, k), xytext=(10, -15), textcoords='offset points', fontsize=8, color='orange')
+
+    elif b > a:  # Vertical ellipse (major axis is vertical)
+        c = math.sqrt(b**2 - a**2)  # Distance from center to each focus
+
+        # Mark vertices at (h, k±b)
+        plt.scatter([h, h], [k - b, k + b], color='green', s=30, zorder=5)
+        plt.annotate(f'Vertex ({h}, {k-b:.1f})', xy=(h, k - b), xytext=(10, -10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h}, {k+b:.1f})', xy=(h, k + b), xytext=(10, 10), textcoords='offset points', fontsize=8)
+
+        # Mark foci at (h, k±c)
+        plt.scatter([h, h], [k - c, k + c], color='orange', s=40, marker='x', zorder=5)
+        plt.annotate(f'Focus ({h}, {k-c:.1f})', xy=(h, k - c), xytext=(15, -10), textcoords='offset points', fontsize=8, color='orange')
+        plt.annotate(f'Focus ({h}, {k+c:.1f})', xy=(h, k + c), xytext=(15, 10), textcoords='offset points', fontsize=8, color='orange')
+
+    else:  # Circle case (a == b), no foci (or foci coincide at center)
+        # Mark vertices at (h±a, k) and (h, k±b)
+        plt.scatter([h - a, h + a], [k, k], color='green', s=30, zorder=5)
+        plt.scatter([h, h], [k - b, k + b], color='green', s=30, zorder=5)
+        plt.annotate(f'Vertex ({h-a:.1f}, {k})', xy=(h - a, k), xytext=(-10, 10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h+a:.1f}, {k})', xy=(h + a, k), xytext=(10, 10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h}, {k-b:.1f})', xy=(h, k - b), xytext=(10, -10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h}, {k+b:.1f})', xy=(h, k + b), xytext=(10, 10), textcoords='offset points', fontsize=8)
+
+        # Note: For a circle, foci coincide at the center (already marked)
+
+    # Set equal aspect ratio to ensure proper ellipse shape
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        plt.title(f'Ellipse: Center ({h}, {k}), a={a}, b={b}')
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.show()
