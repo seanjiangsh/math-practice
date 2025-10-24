@@ -629,3 +629,146 @@ def plot_ellipse(h: float, k: float, a: float, b: float, limits: LimitDict = Non
     plt.xlabel('x')
     plt.ylabel('y', rotation=0)
     plt.show()
+
+
+def plot_hyperbola(h: float, k: float, a: float, b: float, orientation: str = "horizontal", limits: LimitDict = None, title: str = None):
+    """
+    Plot a hyperbola with center (h, k) and parameters a and b
+    
+    Args:
+        h (float): x-coordinate of center
+        k (float): y-coordinate of center
+        a (float): distance from center to vertices (for horizontal) or parameter (for vertical)
+        b (float): parameter for the hyperbola equation
+        orientation (str): "horizontal" for (x-h)²/a² - (y-k)²/b² = 1, 
+                          "vertical" for (y-k)²/a² - (x-h)²/b² = 1
+        limits (LimitDict): Optional plot limits
+        title (str): Optional custom title
+    """
+    # Create the plot
+    plt.figure(figsize=(8, 6))
+    setup_plot(limits)
+
+    # Determine plot range based on limits or default
+    if limits:
+        x_range = np.linspace(limits['x'][0], limits['x'][1], 1000)
+        y_range = np.linspace(limits['y'][0], limits['y'][1], 1000)
+    else:
+        x_range = np.linspace(-10, 10, 1000)
+        y_range = np.linspace(-10, 10, 1000)
+
+    # Calculate foci distance: c² = a² + b²
+    c = math.sqrt(a**2 + b**2)
+
+    if orientation == "horizontal":
+        # Horizontal hyperbola: (x-h)²/a² - (y-k)²/b² = 1
+
+        # Plot right branch: x = h + a*cosh(t), y = k + b*sinh(t)
+        t = np.linspace(0, 3, 200)  # Use parametric form for smooth curves
+        x_right = h + a * np.cosh(t)
+        y_right_pos = k + b * np.sinh(t)
+        y_right_neg = k - b * np.sinh(t)
+
+        # Plot left branch: x = h - a*cosh(t), y = k ± b*sinh(t)
+        x_left = h - a * np.cosh(t)
+        y_left_pos = k + b * np.sinh(t)
+        y_left_neg = k - b * np.sinh(t)
+
+        # Filter points within the plot limits
+        if limits:
+            # Right branch
+            mask_right = (x_right >= limits['x'][0]) & (x_right <= limits['x'][1])
+            x_right, y_right_pos, y_right_neg = x_right[mask_right], y_right_pos[mask_right], y_right_neg[mask_right]
+
+            # Left branch
+            mask_left = (x_left >= limits['x'][0]) & (x_left <= limits['x'][1])
+            x_left, y_left_pos, y_left_neg = x_left[mask_left], y_left_pos[mask_left], y_left_neg[mask_left]
+
+        # Plot the hyperbola branches
+        plt.plot(x_right, y_right_pos, 'b-', linewidth=2, label='Hyperbola')
+        plt.plot(x_right, y_right_neg, 'b-', linewidth=2)
+        plt.plot(x_left, y_left_pos, 'b-', linewidth=2)
+        plt.plot(x_left, y_left_neg, 'b-', linewidth=2)
+
+        # Plot asymptotes: y = k ± (b/a)(x - h)
+        x_asym = x_range
+        y_asym_pos = k + (b / a) * (x_asym - h)
+        y_asym_neg = k - (b / a) * (x_asym - h)
+        plt.plot(x_asym, y_asym_pos, 'r--', linewidth=1, alpha=0.7, label='Asymptotes')
+        plt.plot(x_asym, y_asym_neg, 'r--', linewidth=1, alpha=0.7)
+
+        # Mark vertices at (h±a, k)
+        plt.scatter([h - a, h + a], [k, k], color='green', s=40, zorder=5)
+        plt.annotate(f'Vertex ({h-a:.1f}, {k})', xy=(h - a, k), xytext=(-15, 10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h+a:.1f}, {k})', xy=(h + a, k), xytext=(15, 10), textcoords='offset points', fontsize=8)
+
+        # Mark foci at (h±c, k)
+        plt.scatter([h - c, h + c], [k, k], color='orange', s=50, marker='x', zorder=5)
+        plt.annotate(f'Focus ({h-c:.1f}, {k})', xy=(h - c, k), xytext=(-15, -15), textcoords='offset points', fontsize=8, color='orange')
+        plt.annotate(f'Focus ({h+c:.1f}, {k})', xy=(h + c, k), xytext=(15, -15), textcoords='offset points', fontsize=8, color='orange')
+
+    else:  # vertical orientation
+        # Vertical hyperbola: (y-k)²/a² - (x-h)²/b² = 1
+
+        # Plot upper branch: y = k + a*cosh(t), x = h ± b*sinh(t)
+        t = np.linspace(0, 3, 200)
+        y_upper = k + a * np.cosh(t)
+        x_upper_pos = h + b * np.sinh(t)
+        x_upper_neg = h - b * np.sinh(t)
+
+        # Plot lower branch: y = k - a*cosh(t), x = h ± b*sinh(t)
+        y_lower = k - a * np.cosh(t)
+        x_lower_pos = h + b * np.sinh(t)
+        x_lower_neg = h - b * np.sinh(t)
+
+        # Filter points within the plot limits
+        if limits:
+            # Upper branch
+            mask_upper = (y_upper >= limits['y'][0]) & (y_upper <= limits['y'][1])
+            y_upper, x_upper_pos, x_upper_neg = y_upper[mask_upper], x_upper_pos[mask_upper], x_upper_neg[mask_upper]
+
+            # Lower branch
+            mask_lower = (y_lower >= limits['y'][0]) & (y_lower <= limits['y'][1])
+            y_lower, x_lower_pos, x_lower_neg = y_lower[mask_lower], x_lower_pos[mask_lower], x_lower_neg[mask_lower]
+
+        # Plot the hyperbola branches
+        plt.plot(x_upper_pos, y_upper, 'b-', linewidth=2, label='Hyperbola')
+        plt.plot(x_upper_neg, y_upper, 'b-', linewidth=2)
+        plt.plot(x_lower_pos, y_lower, 'b-', linewidth=2)
+        plt.plot(x_lower_neg, y_lower, 'b-', linewidth=2)
+
+        # Plot asymptotes: y = k ± (a/b)(x - h)
+        x_asym = x_range
+        y_asym_pos = k + (a / b) * (x_asym - h)
+        y_asym_neg = k - (a / b) * (x_asym - h)
+        plt.plot(x_asym, y_asym_pos, 'r--', linewidth=1, alpha=0.7, label='Asymptotes')
+        plt.plot(x_asym, y_asym_neg, 'r--', linewidth=1, alpha=0.7)
+
+        # Mark vertices at (h, k±a)
+        plt.scatter([h, h], [k - a, k + a], color='green', s=40, zorder=5)
+        plt.annotate(f'Vertex ({h}, {k-a:.1f})', xy=(h, k - a), xytext=(15, -10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h}, {k+a:.1f})', xy=(h, k + a), xytext=(15, 10), textcoords='offset points', fontsize=8)
+
+        # Mark foci at (h, k±c)
+        plt.scatter([h, h], [k - c, k + c], color='orange', s=50, marker='x', zorder=5)
+        plt.annotate(f'Focus ({h}, {k-c:.1f})', xy=(h, k - c), xytext=(20, -15), textcoords='offset points', fontsize=8, color='orange')
+        plt.annotate(f'Focus ({h}, {k+c:.1f})', xy=(h, k + c), xytext=(20, 15), textcoords='offset points', fontsize=8, color='orange')
+
+    # Mark center
+    plt.scatter([h], [k], color='red', s=50, zorder=5)
+    plt.annotate(f'Center ({h}, {k})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    # Set equal aspect ratio
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        orientation_text = "Horizontal" if orientation == "horizontal" else "Vertical"
+        plt.title(f'{orientation_text} Hyperbola: Center ({h}, {k}), a={a}, b={b}')
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.legend()
+    plt.show()
