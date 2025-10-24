@@ -631,6 +631,127 @@ def plot_ellipse(h: float, k: float, a: float, b: float, limits: LimitDict = Non
     plt.show()
 
 
+def plot_parabola(h: float, k: float, p: float, orientation: str = "vertical", limits: LimitDict = None, title: str = None):
+    """
+    Plot a parabola with vertex (h, k) and parameter p
+    
+    Args:
+        h (float): x-coordinate of vertex
+        k (float): y-coordinate of vertex
+        p (float): distance from vertex to focus (determines the "width" of parabola)
+                  If p > 0: opens up (vertical) or right (horizontal)
+                  If p < 0: opens down (vertical) or left (horizontal)
+        orientation (str): "vertical" for (x-h)² = 4p(y-k), 
+                          "horizontal" for (y-k)² = 4p(x-h)
+        limits (LimitDict): Optional plot limits
+        title (str): Optional custom title
+    """
+    # Create the plot
+    plt.figure(figsize=(8, 6))
+    setup_plot(limits)
+
+    # Determine plot range based on limits or default
+    if limits:
+        x_range = np.linspace(limits['x'][0], limits['x'][1], 1000)
+        y_range = np.linspace(limits['y'][0], limits['y'][1], 1000)
+    else:
+        x_range = np.linspace(-10, 10, 1000)
+        y_range = np.linspace(-10, 10, 1000)
+
+    if orientation == "vertical":
+        # Vertical parabola: (x-h)² = 4p(y-k)
+        # Solve for y: y = k + (x-h)²/(4p)
+
+        # Generate x values around the vertex
+        x_vals = x_range
+        y_vals = k + (x_vals - h)**2 / (4 * p)
+
+        # Filter points within plot limits
+        if limits:
+            mask = (y_vals >= limits['y'][0]) & (y_vals <= limits['y'][1])
+            x_vals, y_vals = x_vals[mask], y_vals[mask]
+
+        # Plot the parabola
+        plt.plot(x_vals, y_vals, 'b-', linewidth=2, label='Parabola')
+
+        # Mark focus at (h, k + p)
+        focus_x, focus_y = h, k + p
+        plt.scatter([focus_x], [focus_y], color='orange', s=50, marker='x', zorder=5)
+        plt.annotate(f'Focus ({focus_x}, {focus_y:.1f})',
+                     xy=(focus_x, focus_y),
+                     xytext=(15, 15),
+                     textcoords='offset points',
+                     fontsize=8,
+                     color='orange')
+
+        # Draw directrix line at y = k - p
+        directrix_y = k - p
+        if limits:
+            directrix_x = [limits['x'][0], limits['x'][1]]
+        else:
+            directrix_x = [x_range[0], x_range[-1]]
+        plt.plot(directrix_x, [directrix_y, directrix_y], 'g--', linewidth=1, alpha=0.7, label=f'Directrix: y = {directrix_y:.1f}')
+
+        # Mark vertex
+        plt.scatter([h], [k], color='red', s=50, zorder=5)
+        plt.annotate(f'Vertex ({h}, {k})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    else:  # horizontal orientation
+        # Horizontal parabola: (y-k)² = 4p(x-h)
+        # Solve for x: x = h + (y-k)²/(4p)
+
+        # Generate y values around the vertex
+        y_vals = y_range
+        x_vals = h + (y_vals - k)**2 / (4 * p)
+
+        # Filter points within plot limits
+        if limits:
+            mask = (x_vals >= limits['x'][0]) & (x_vals <= limits['x'][1])
+            x_vals, y_vals = x_vals[mask], y_vals[mask]
+
+        # Plot the parabola
+        plt.plot(x_vals, y_vals, 'b-', linewidth=2, label='Parabola')
+
+        # Mark focus at (h + p, k)
+        focus_x, focus_y = h + p, k
+        plt.scatter([focus_x], [focus_y], color='orange', s=50, marker='x', zorder=5)
+        plt.annotate(f'Focus ({focus_x:.1f}, {focus_y})',
+                     xy=(focus_x, focus_y),
+                     xytext=(15, 15),
+                     textcoords='offset points',
+                     fontsize=8,
+                     color='orange')
+
+        # Draw directrix line at x = h - p
+        directrix_x = h - p
+        if limits:
+            directrix_y = [limits['y'][0], limits['y'][1]]
+        else:
+            directrix_y = [y_range[0], y_range[-1]]
+        plt.plot([directrix_x, directrix_x], directrix_y, 'g--', linewidth=1, alpha=0.7, label=f'Directrix: x = {directrix_x:.1f}')
+
+        # Mark vertex
+        plt.scatter([h], [k], color='red', s=50, zorder=5)
+        plt.annotate(f'Vertex ({h}, {k})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    # Set equal aspect ratio
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        direction = "Up" if (orientation == "vertical" and p > 0) else \
+                   "Down" if (orientation == "vertical" and p < 0) else \
+                   "Right" if (orientation == "horizontal" and p > 0) else "Left"
+        plt.title(f'{direction} Opening Parabola: Vertex ({h}, {k}), p={p}')
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.legend()
+    plt.show()
+
+
 def plot_hyperbola(h: float, k: float, a: float, b: float, orientation: str = "horizontal", limits: LimitDict = None, title: str = None):
     """
     Plot a hyperbola with center (h, k) and parameters a and b
