@@ -893,3 +893,270 @@ def plot_hyperbola(h: float, k: float, a: float, b: float, orientation: str = "h
     plt.ylabel('y', rotation=0)
     plt.legend()
     plt.show()
+
+
+def analyze_general_conic(A: float, B: float, C: float, D: float, E: float, F: float):
+    """
+    Analyze a general conic section: Ax² + Bxy + Cy² + Dx + Ey + F = 0
+    
+    Returns:
+        dict: Contains conic type, rotation angle, canonical form parameters, and center
+    """
+    # Calculate discriminant to determine conic type
+    discriminant = B**2 - 4 * A * C
+
+    # Determine conic type
+    if abs(discriminant) < 1e-10:  # discriminant ≈ 0
+        conic_type = "parabola"
+    elif discriminant < 0:
+        conic_type = "ellipse"  # or circle
+    else:  # discriminant > 0
+        conic_type = "hyperbola"
+
+    # Calculate rotation angle θ
+    if abs(B) < 1e-10:  # B ≈ 0, no rotation
+        theta = 0
+    else:
+        theta = 0.5 * math.atan2(B, A - C)
+
+    # Rotation matrix coefficients
+    cos_theta = math.cos(theta)
+    sin_theta = math.sin(theta)
+
+    # Transform coefficients to eliminate xy term
+    # Using rotation formulas: x = x'cos(θ) - y'sin(θ), y = x'sin(θ) + y'cos(θ)
+    A_prime = A * cos_theta**2 + B * cos_theta * sin_theta + C * sin_theta**2
+    C_prime = A * sin_theta**2 - B * cos_theta * sin_theta + C * cos_theta**2
+    D_prime = D * cos_theta + E * sin_theta
+    E_prime = -D * sin_theta + E * cos_theta
+    F_prime = F
+
+    # Find center (h', k') in rotated coordinate system
+    if conic_type == "parabola":
+        # For parabola, handle differently based on which coefficient is zero
+        if abs(A_prime) < 1e-10:  # A' ≈ 0, vertical parabola in rotated system
+            h_prime = -E_prime / (2 * C_prime)
+            # k' is determined by completing the square in the other variable
+            k_prime = -(D_prime**2) / (4 * A_prime) if abs(A_prime) > 1e-10 else 0
+        else:  # C' ≈ 0, horizontal parabola in rotated system
+            k_prime = -D_prime / (2 * A_prime)
+            h_prime = -(E_prime**2) / (4 * C_prime) if abs(C_prime) > 1e-10 else 0
+    else:
+        # For ellipse and hyperbola
+        if abs(A_prime) > 1e-10 and abs(C_prime) > 1e-10:
+            h_prime = -D_prime / (2 * A_prime)
+            k_prime = -E_prime / (2 * C_prime)
+        else:
+            h_prime = k_prime = 0
+
+    # Transform center back to original coordinate system
+    h = h_prime * cos_theta - k_prime * sin_theta
+    k = h_prime * sin_theta + k_prime * cos_theta
+
+    # Round center coordinates for readability
+    h = round(h, 4)
+    k = round(k, 4)
+
+    # Calculate canonical form parameters
+    canonical_params = {}
+
+    if conic_type in ["ellipse", "hyperbola"]:
+        # Complete the square and get standard form
+        # After translation: A'(x')² + C'(y')² = -F''
+        F_double_prime = F_prime + A_prime * h_prime**2 + C_prime * k_prime**2
+
+        if abs(F_double_prime) > 1e-10:
+            a_squared = -F_double_prime / A_prime
+            b_squared = -F_double_prime / C_prime
+
+            if a_squared > 0 and b_squared > 0:
+                a = math.sqrt(abs(a_squared))
+                b = math.sqrt(abs(b_squared))
+                # Round to 4 decimal places for readability
+                canonical_params = {"a": round(a, 4), "b": round(b, 4)}
+            else:
+                canonical_params = {"a": 1, "b": 1}  # Default values
+        else:
+            canonical_params = {"a": 1, "b": 1}  # Default values
+
+    elif conic_type == "parabola":
+        # For parabola: (x')² = 4p(y') or (y')² = 4p(x')
+        if abs(A_prime) < 1e-10:  # Vertical parabola
+            p = -D_prime / (4 * C_prime) if abs(C_prime) > 1e-10 else 1
+            # Round to 4 decimal places for readability
+            canonical_params = {"p": round(p, 4), "orientation": "vertical"}
+        else:  # Horizontal parabola
+            p = -E_prime / (4 * A_prime) if abs(A_prime) > 1e-10 else 1
+            # Round to 4 decimal places for readability
+            canonical_params = {"p": round(p, 4), "orientation": "horizontal"}
+
+    return {
+        "type": conic_type,
+        "discriminant": round(discriminant, 4),
+        "rotation_angle": theta,
+        "rotation_angle_degrees": round(math.degrees(theta), 2),
+        "center": (h, k),
+        "canonical_params": canonical_params,
+        "transformed_coefficients": {
+            "A_prime": round(A_prime, 4),
+            "C_prime": round(C_prime, 4),
+            "D_prime": round(D_prime, 4),
+            "E_prime": round(E_prime, 4),
+            "F_prime": round(F_prime, 4)
+        }
+    }
+
+
+def plot_rotated_conic(A: float,
+                       B: float,
+                       C: float,
+                       D: float,
+                       E: float,
+                       F: float,
+                       limits: LimitDict = None,
+                       title: str = None,
+                       n_points: int = 1000):
+    """
+    Plot a general conic section: Ax² + Bxy + Cy² + Dx + Ey + F = 0
+    
+    Args:
+        A, B, C, D, E, F: Coefficients of the general conic equation
+        limits: Plot limits
+        title: Custom title
+        n_points: Number of points for plotting
+    """
+    # Analyze the conic
+    analysis = analyze_general_conic(A, B, C, D, E, F)
+
+    plt.figure(figsize=(10, 8))
+    setup_plot(limits)
+
+    # Determine plot range
+    if limits:
+        x_range = np.linspace(limits['x'][0], limits['x'][1], n_points)
+        y_range = np.linspace(limits['y'][0], limits['y'][1], n_points)
+    else:
+        x_range = np.linspace(-10, 10, n_points)
+        y_range = np.linspace(-10, 10, n_points)
+
+    # Create meshgrid for contour plotting
+    X, Y = np.meshgrid(x_range, y_range)
+    Z = A * X**2 + B * X * Y + C * Y**2 + D * X + E * Y + F
+
+    # Plot the conic using contour
+    contour = plt.contour(X, Y, Z, levels=[0], colors=['blue'], linewidths=2)
+
+    # Extract and plot the conic curve more smoothly
+    try:
+        # Get contour paths and plot each path separately to avoid unwanted connections
+        first_path = True
+        for collection in contour.collections:
+            for path in collection.get_paths():
+                vertices = path.vertices
+                if len(vertices) > 0:
+                    # For hyperbolas, we need to check if this is a separate branch
+                    # by looking at the distance between consecutive points
+                    if analysis["type"] == "hyperbola" and len(vertices) > 10:
+                        # Split at large gaps to separate branches
+                        segments = []
+                        current_segment = [vertices[0]]
+
+                        for i in range(1, len(vertices)):
+                            # Calculate distance between consecutive points
+                            dist = np.sqrt((vertices[i][0] - vertices[i - 1][0])**2 + (vertices[i][1] - vertices[i - 1][1])**2)
+
+                            # If distance is too large, start a new segment
+                            if dist > 2.0:  # Threshold for breaking segments
+                                if len(current_segment) > 1:
+                                    segments.append(np.array(current_segment))
+                                current_segment = [vertices[i]]
+                            else:
+                                current_segment.append(vertices[i])
+
+                        # Add the last segment
+                        if len(current_segment) > 1:
+                            segments.append(np.array(current_segment))
+
+                        # Plot each segment separately
+                        for j, segment in enumerate(segments):
+                            if len(segment) > 1:
+                                label = f'{analysis["type"].title()}' if first_path and j == 0 else None
+                                plt.plot(segment[:, 0], segment[:, 1], 'b-', linewidth=2, label=label)
+                                first_path = False
+                    else:
+                        # For ellipses and parabolas, plot normally
+                        label = f'{analysis["type"].title()}' if first_path else None
+                        plt.plot(vertices[:, 0], vertices[:, 1], 'b-', linewidth=2, label=label)
+                        first_path = False
+    except Exception as e:
+        # Fallback to contour if path extraction fails
+        print(f"Warning: Path extraction failed ({e}), using contour plot")
+        pass
+
+    # Plot center
+    h, k = analysis["center"]
+    plt.scatter([h], [k], color='red', s=50, zorder=5)
+    plt.annotate(f'Center ({h:.2f}, {k:.2f})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    # Draw rotated axes if there's rotation
+    theta = analysis["rotation_angle"]
+    if abs(theta) > 1e-3:  # Only draw if there's significant rotation
+        # Draw rotated axes through the center
+        axis_length = 3
+
+        # x' axis (rotated x-axis)
+        x_axis_end = h + axis_length * math.cos(theta)
+        y_axis_end = k + axis_length * math.sin(theta)
+        plt.arrow(h - axis_length * math.cos(theta),
+                  k - axis_length * math.sin(theta),
+                  2 * axis_length * math.cos(theta),
+                  2 * axis_length * math.sin(theta),
+                  head_width=0.2,
+                  head_length=0.3,
+                  fc='green',
+                  ec='green',
+                  alpha=0.7)
+        plt.text(x_axis_end + 0.3, y_axis_end + 0.3, "x'", fontsize=12, color='green')
+
+        # y' axis (rotated y-axis)
+        x_axis_end = h - axis_length * math.sin(theta)
+        y_axis_end = k + axis_length * math.cos(theta)
+        plt.arrow(h + axis_length * math.sin(theta),
+                  k - axis_length * math.cos(theta),
+                  -2 * axis_length * math.sin(theta),
+                  2 * axis_length * math.cos(theta),
+                  head_width=0.2,
+                  head_length=0.3,
+                  fc='purple',
+                  ec='purple',
+                  alpha=0.7)
+        plt.text(x_axis_end + 0.3, y_axis_end + 0.3, "y'", fontsize=12, color='purple')
+
+    # Set equal aspect ratio
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        angle_deg = analysis["rotation_angle_degrees"]
+        plt.title(f'{analysis["type"].title()}: Rotation = {angle_deg:.1f}°')
+
+    # Add rotation angle text
+    angle_deg = analysis["rotation_angle_degrees"]
+    if abs(angle_deg) > 0.1:
+        plt.text(0.02,
+                 0.98,
+                 f'Rotation angle: {angle_deg:.1f}°',
+                 transform=plt.gca().transAxes,
+                 fontsize=10,
+                 verticalalignment='top',
+                 bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.show()
+
+    return analysis
