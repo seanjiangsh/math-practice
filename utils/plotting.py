@@ -449,7 +449,112 @@ def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optio
     plt.show()
 
 
-def plot_polar_equation(title: str, equation, n_points=1000, show_vertices=True, min_vertex_distance=0.05, **kwargs):
+def find_valid_theta_range(equation, max_r_threshold=None):
+    """
+    Find a valid theta range for plotting polar equations that might have asymptotes or undefined regions.
+    
+    Args:
+        equation: The polar equation function
+        max_r_threshold: Maximum reasonable r value (auto-detected if None)
+        
+    Returns:
+        tuple: (theta_start, theta_end) for a valid range, or list of ranges for discontinuous curves
+    """
+    # Test many points to find valid regions
+    test_points = 3600  # Test every 0.1 degrees for high precision
+    theta_tests = np.linspace(0, 2 * np.pi, test_points)
+    r_values = []
+    valid_indices = []
+
+    # First pass: collect all finite r values to determine appropriate threshold
+    for i, theta_test in enumerate(theta_tests):
+        try:
+            r_test = equation(theta_test)
+            if np.isfinite(r_test) and np.isreal(r_test):
+                r_values.append(abs(r_test))
+        except:
+            continue
+
+    # Auto-detect threshold if not provided
+    if max_r_threshold is None and r_values:
+        r_values = np.array(r_values)
+        # Use 95th percentile + 3*IQR to handle outliers while keeping most values
+        q75, q25 = np.percentile(r_values, [75, 25])
+        iqr = q75 - q25
+        p95 = np.percentile(r_values, 95)
+        max_r_threshold = max(p95 + 3 * iqr, 100)  # At least 100 for hyperbolas
+    elif max_r_threshold is None:
+        max_r_threshold = 1000  # Large default if no valid values found
+
+    # Second pass: find valid indices with the determined threshold
+    for i, theta_test in enumerate(theta_tests):
+        try:
+            r_test = equation(theta_test)
+            # Check if r is finite, real, and reasonable
+            if (np.isfinite(r_test) and np.isreal(r_test) and abs(r_test) < max_r_threshold):
+                valid_indices.append(i)
+        except:
+            continue
+
+    if len(valid_indices) == 0:
+        # If no valid ranges found, return a safe default
+        return (0, 2 * np.pi)
+
+    # Find continuous segments
+    segments = []
+    if len(valid_indices) > 0:
+        start_idx = valid_indices[0]
+        current_segment = [start_idx]
+
+        for i in range(1, len(valid_indices)):
+            # If there's a gap larger than 5 indices (about 0.5 degrees)
+            if valid_indices[i] - valid_indices[i - 1] > 5:
+                # End current segment
+                end_idx = valid_indices[i - 1]
+                segments.append((theta_tests[start_idx], theta_tests[end_idx]))
+                # Start new segment
+                start_idx = valid_indices[i]
+
+        # Add the final segment
+        end_idx = valid_indices[-1]
+        segments.append((theta_tests[start_idx], theta_tests[end_idx]))
+
+    # For parabolas and hyperbolas with asymptotes, handle wrapping segments intelligently
+    if len(segments) >= 2:
+        # Check if we have segments at the start and end that might be part of the same curve
+        first_seg = segments[0]
+        last_seg = segments[-1]
+
+        # Case 1: Two segments wrapping around 0/2π (typical parabola)
+        if len(segments) == 2 and first_seg[0] < 0.2 and last_seg[1] > 2 * np.pi - 0.2:
+            # This is likely a parabola wrapping around - use nearly full range
+            gap_start = first_seg[1]
+            gap_end = last_seg[0]
+            gap_center = (gap_start + gap_end) / 2
+            # Start slightly after gap and go nearly full circle
+            return (gap_center + 0.1, gap_center + 2 * np.pi - 0.1)
+
+        # Case 2: Multiple segments (typical hyperbola with multiple branches)
+        # For hyperbolas and other multi-segment curves, just use the full range
+        # The filtering in plot_polar_equation will handle discontinuities by setting them to NaN
+        return (0, 2 * np.pi)
+
+    # Return the longest segment for single segment cases
+    if segments:
+        longest_segment = max(segments, key=lambda seg: seg[1] - seg[0])
+        return longest_segment
+
+    return (0, 2 * np.pi)
+
+
+def plot_polar_equation(title: str,
+                        equation,
+                        n_points=1000,
+                        show_vertices=True,
+                        min_vertex_distance=0.05,
+                        theta_range=None,
+                        max_r=None,
+                        **kwargs):
     """
     Plot a polar equation of the form r = f(theta).
     
@@ -459,22 +564,67 @@ def plot_polar_equation(title: str, equation, n_points=1000, show_vertices=True,
         n_points (int): Number of points to plot
         show_vertices (bool): If True, find and mark vertices of the curve
         min_vertex_distance (float): Minimum distance between vertices to avoid duplicates
+        theta_range (tuple): Optional (start, end) range for theta. If None, uses (0, 2π)
+        max_r (float): Optional maximum r value to display. If None, auto-detects based on data statistics
         **kwargs: Additional arguments to pass to the plot function (color, linestyle, label)
-    """# Generate theta values
-    theta = np.linspace(0, 2 * np.pi, n_points)
+    """
+    # Determine theta range
+    if theta_range is None:
+        # Try to auto-detect if this might be an open curve by testing the equation
+        try:
+            # Test a few values to see if we get complex numbers or very large values
+            test_thetas = np.linspace(0, 2 * np.pi, 100)
+            test_r = equation(test_thetas)
+
+            # Check for issues that indicate we should use a restricted range
+            has_complex = np.any(np.iscomplex(test_r))
+            has_infinite = np.any(np.isinf(np.abs(test_r)))
+            has_very_large = np.any(np.abs(test_r) > 1000)
+
+            if has_complex or has_infinite or has_very_large:
+                # This might be an open curve - try to find a good range
+                theta_range = find_valid_theta_range(equation)
+            else:
+                theta_range = (0, 2 * np.pi)
+        except:
+            theta_range = (0, 2 * np.pi)
+
+    # Generate theta values
+    theta = np.linspace(theta_range[0], theta_range[1], n_points)
     r = equation(theta)
     r = np.broadcast_to(r, theta.shape)
+
+    # Filter out extreme values that can distort the plot
+    # Use adaptive threshold based on the data, or user-specified max_r
+    if max_r is not None:
+        # User specified a maximum r value
+        max_reasonable_r = max_r
+    else:
+        # Auto-detect threshold based on data statistics
+        finite_r = r[np.isfinite(r) & np.isreal(r)]
+        if len(finite_r) > 0:
+            r_std = np.std(np.abs(finite_r))
+            r_mean = np.mean(np.abs(finite_r))
+            # Use a more generous threshold for hyperbolas and other open curves
+            max_reasonable_r = max(r_mean + 5 * r_std, 1000)
+        else:
+            max_reasonable_r = 1000
+
+    valid_mask = (np.isfinite(r) & np.isreal(r) & (np.abs(r) < max_reasonable_r))
+
+    # Replace invalid values with NaN to create gaps in the plot
+    r_filtered = np.where(valid_mask, r, np.nan)
 
     # Create curve dictionary
     curve = {
         'theta': theta,
-        'r': r,
+        'r': r_filtered,
         'color': kwargs.get('color', 'blue'),
         'linestyle': kwargs.get('linestyle', '-'),
         'label': kwargs.get('label', None)
     }  # Add vertices if requested
-    if show_vertices:  # Find vertices of the equation
-        vertices = find_polar_vertices(equation, (0, 2 * np.pi), n_points, min_vertex_distance)
+    if show_vertices:  # Find vertices of the equation using the same theta range
+        vertices = find_polar_vertices(equation, theta_range, n_points, min_vertex_distance)
 
         vertex_points = []
 

@@ -221,19 +221,47 @@ def find_polar_vertices(equation: Callable[[np.ndarray], np.ndarray],
     thetas = np.linspace(theta_range[0], theta_range[1], n_points)
     delta = (theta_range[1] - theta_range[0]) / n_points
 
-    # Ensure output is always at least 1D array
+    # Ensure output is always at least 1D array and filter extreme values
     rs = np.atleast_1d(equation(thetas))
+
+    # Filter out extreme r values before computing derivatives (use adaptive threshold)
+    finite_rs = rs[np.isfinite(rs)]
+    if len(finite_rs) > 0:
+        r_std = np.std(np.abs(finite_rs))
+        r_mean = np.mean(np.abs(finite_rs))
+        max_r = max(r_mean + 5 * r_std, 1000)
+    else:
+        max_r = 1000
+    rs = np.where(np.abs(rs) > max_r, np.nan, rs)
+
+    # Only compute derivatives where we have valid r values
+    valid_mask = ~np.isnan(rs)
+    if not np.any(valid_mask):
+        return []
+
     rs_forward = np.atleast_1d(equation(thetas + delta / 2))
     rs_backward = np.atleast_1d(equation(thetas - delta / 2))
-    derivatives = (rs_forward - rs_backward) / delta
+
+    # Apply same filtering to forward and backward points
+    rs_forward = np.where(np.abs(rs_forward) > max_r, np.nan, rs_forward)
+    rs_backward = np.where(np.abs(rs_backward) > max_r, np.nan, rs_backward)
+
+    # Calculate derivatives only where all three points are valid
+    derivatives = np.full_like(rs, np.nan)
+    all_valid = valid_mask & ~np.isnan(rs_forward) & ~np.isnan(rs_backward)
+    derivatives[all_valid] = (rs_forward[all_valid] - rs_backward[all_valid]) / delta
 
     # Find where derivative changes sign (crosses zero)
     vertices = []
     for i in range(1, len(derivatives) - 1):
-        if derivatives[i - 1] * derivatives[i + 1] <= 0:
+        if (not np.isnan(derivatives[i - 1]) and not np.isnan(derivatives[i + 1]) and derivatives[i - 1] * derivatives[i + 1] <= 0):
             # Found a sign change - this is approximately a vertex
             theta = thetas[i]
             r = equation(theta)
+
+            # Skip if r is extreme
+            if np.abs(r) > max_r:
+                continue
 
             # Normalize theta to be within [0, 2π)
             theta = theta % (2 * np.pi)
