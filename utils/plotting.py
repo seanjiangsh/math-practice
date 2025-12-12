@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.patches import FancyArrowPatch
 import numpy as np
 import sympy as sp
 import math
@@ -90,7 +91,9 @@ def plot_lines(title: str,
                limits: LimitDict = None,
                xlabel: str = 'x',
                ylabel: str = 'y',
-               other_points: list[PointDict] = None):
+               other_points: list[PointDict] = None,
+               show_direction: bool = False,
+               num_arrows: int = 3):
     plt.figure(figsize=(6, 6))
     setup_plot(limits)
 
@@ -101,6 +104,52 @@ def plot_lines(title: str,
         linestyle = line.get('linestyle', '-')
         label = line.get('label', None)
         plt.plot(x, y, color=line_color, linestyle=linestyle, label=label)
+
+        # Add direction arrows if requested
+        if show_direction:
+            # Filter out NaN and inf values for arrow placement
+            valid_mask = np.isfinite(x) & np.isfinite(y)
+            x_valid = x[valid_mask]
+            y_valid = y[valid_mask]
+
+            if len(x_valid) > 1:
+                # Place arrows at evenly spaced intervals along the curve
+                arrow_indices = np.linspace(0, len(x_valid) - 2, num_arrows, dtype=int)
+
+                for idx in arrow_indices:
+                    # Calculate tangent vector (direction of curve)
+                    dx = x_valid[idx + 1] - x_valid[idx]
+                    dy = y_valid[idx + 1] - y_valid[idx]
+
+                    # Normalize the direction for better visibility
+                    arrow_length = np.sqrt(dx**2 + dy**2)
+                    if arrow_length > 0:
+                        # Normalize to unit vector
+                        dx_norm = dx / arrow_length
+                        dy_norm = dy / arrow_length
+
+                        # Position on the curve - place arrow centered on the point
+                        pos_x = x_valid[idx]
+                        pos_y = y_valid[idx]
+
+                        # Arrow length for visibility
+                        arrow_size = 0.5
+
+                        # Center the arrow on the curve point by offsetting backwards
+                        start_x = pos_x - dx_norm * arrow_size * 0.1
+                        start_y = pos_y - dy_norm * arrow_size * 0.1
+                        end_x = pos_x + dx_norm * arrow_size * 0.1
+                        end_y = pos_y + dy_norm * arrow_size * 0.1
+
+                        # Draw arrow using FancyArrowPatch with no tail
+                        arrow = FancyArrowPatch((start_x, start_y), (end_x, end_y),
+                                                arrowstyle='-|>',
+                                                color=line_color,
+                                                mutation_scale=25,
+                                                linewidth=0,
+                                                alpha=0.8,
+                                                zorder=5)
+                        plt.gca().add_patch(arrow)
 
         # Plot points
         points = line.get('points', [])
