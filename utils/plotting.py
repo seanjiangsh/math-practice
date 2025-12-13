@@ -1,13 +1,18 @@
 # Type definitions
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.patches import FancyArrowPatch
 import numpy as np
 import sympy as sp
 import math
+import re
 from scipy.signal import find_peaks
 
 from numpy import ndarray
 from typing import TypedDict, Optional
+
+from preCalculus import get_pi_fraction_string, find_polar_vertices
 
 
 class PointDict(TypedDict):
@@ -37,6 +42,15 @@ class FillBetweenDict(TypedDict):
 class LimitDict(TypedDict):
     x: tuple[float, float]
     y: tuple[float, float]
+
+
+class PolarCurveDict(TypedDict):
+    theta: ndarray[float]
+    r: ndarray[float]
+    color: Optional[str]
+    linestyle: Optional[str]
+    label: Optional[str]
+    points: Optional[list[PointDict]]
 
 
 # Functions
@@ -71,7 +85,15 @@ def setup_plot(limits: LimitDict = None) -> None:
         plt.gca().set_yticks(np.arange(-10, 11, 5), minor=False)
 
 
-def plot_lines(title: str, lines: list[LineDict], fills: list[FillBetweenDict] = None, limits: LimitDict = None):
+def plot_lines(title: str,
+               lines: list[LineDict],
+               fills: list[FillBetweenDict] = None,
+               limits: LimitDict = None,
+               xlabel: str = 'x',
+               ylabel: str = 'y',
+               other_points: list[PointDict] = None,
+               show_direction: bool = False,
+               num_arrows: int = 3):
     plt.figure(figsize=(6, 6))
     setup_plot(limits)
 
@@ -82,6 +104,52 @@ def plot_lines(title: str, lines: list[LineDict], fills: list[FillBetweenDict] =
         linestyle = line.get('linestyle', '-')
         label = line.get('label', None)
         plt.plot(x, y, color=line_color, linestyle=linestyle, label=label)
+
+        # Add direction arrows if requested
+        if show_direction:
+            # Filter out NaN and inf values for arrow placement
+            valid_mask = np.isfinite(x) & np.isfinite(y)
+            x_valid = x[valid_mask]
+            y_valid = y[valid_mask]
+
+            if len(x_valid) > 1:
+                # Place arrows at evenly spaced intervals along the curve
+                arrow_indices = np.linspace(0, len(x_valid) - 2, num_arrows, dtype=int)
+
+                for idx in arrow_indices:
+                    # Calculate tangent vector (direction of curve)
+                    dx = x_valid[idx + 1] - x_valid[idx]
+                    dy = y_valid[idx + 1] - y_valid[idx]
+
+                    # Normalize the direction for better visibility
+                    arrow_length = np.sqrt(dx**2 + dy**2)
+                    if arrow_length > 0:
+                        # Normalize to unit vector
+                        dx_norm = dx / arrow_length
+                        dy_norm = dy / arrow_length
+
+                        # Position on the curve - place arrow centered on the point
+                        pos_x = x_valid[idx]
+                        pos_y = y_valid[idx]
+
+                        # Arrow length for visibility
+                        arrow_size = 0.5
+
+                        # Center the arrow on the curve point by offsetting backwards
+                        start_x = pos_x - dx_norm * arrow_size * 0.1
+                        start_y = pos_y - dy_norm * arrow_size * 0.1
+                        end_x = pos_x + dx_norm * arrow_size * 0.1
+                        end_y = pos_y + dy_norm * arrow_size * 0.1
+
+                        # Draw arrow using FancyArrowPatch with no tail
+                        arrow = FancyArrowPatch((start_x, start_y), (end_x, end_y),
+                                                arrowstyle='-|>',
+                                                color=line_color,
+                                                mutation_scale=25,
+                                                linewidth=0,
+                                                alpha=0.8,
+                                                zorder=5)
+                        plt.gca().add_patch(arrow)
 
         # Plot points
         points = line.get('points', [])
@@ -97,6 +165,20 @@ def plot_lines(title: str, lines: list[LineDict], fills: list[FillBetweenDict] =
             if label:
                 plt.annotate(label, xy=(x, y), xytext=(5, 5), textcoords='offset points')
 
+    # Plot other_points (independent of lines)
+    if other_points is not None:
+        for point in other_points:
+            x = point['x']
+            y = point['y']
+            equal = point['equal'] if 'equal' in point else True
+            label = point.get('label', None)
+            point_color = 'blue' if equal else 'white'  # Default color for other_points
+            marker_edge_color = None if equal else 'red'
+            plt.plot(x, y, 'o', color=point_color, markersize=5, markeredgewidth=1, markeredgecolor=marker_edge_color)
+            # Annotate each point with a label
+            if label:
+                plt.annotate(label, xy=(x, y), xytext=(5, 5), textcoords='offset points')
+
     # Plot fills
     if fills is not None:
         for fill in fills:
@@ -107,8 +189,9 @@ def plot_lines(title: str, lines: list[LineDict], fills: list[FillBetweenDict] =
             fill_color = fill.get('color', 'lightblue')
             plt.fill_between(x, y1, y2, where, color=fill_color, alpha=0.5)
 
-    plt.xlabel('x')
-    plt.ylabel('y', rotation=0)
+    # Set custom axis labels
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel, rotation=0)
     plt.title(title)
 
     # Check if any line has a label and add legend if true
@@ -127,17 +210,15 @@ def get_slope_intercept_points(slope: float, intercept=0):
 
 
 class GeometryLineDict(TypedDict):
-    x: ndarray[float]
-    y: ndarray[float]
+    coordinates: ndarray[float]  # Shape (n, 2) where each row is [x, y]
     color: Optional[str]
-    points: Optional[list[str]]
-    labels: Optional[str]
+    point_labels: Optional[list[str]]
+    label: Optional[str]
 
 
 class PolygonDict(TypedDict):
-    x: ndarray[float]
-    y: ndarray[float]
-    points: list[str]
+    coordinates: ndarray[float]  # Shape (n, 2) where each row is [x, y]
+    point_labels: list[str]
     color: Optional[str]
     label: Optional[str]
 
@@ -151,14 +232,15 @@ def plot_geometry(title: str, lines: list[GeometryLineDict] = None, polygons: li
 
     if lines is not None:
         for line in lines:
-            x = line['x']
-            y = line['y']
+            coords = line['coordinates']
+            x = coords[:, 0]  # Extract x coordinates
+            y = coords[:, 1]  # Extract y coordinates
             line_color = line.get('color', 'blue')
-            labels = line.get('labels', None)
-            plt.plot(x, y, 'o-', color=line_color, markersize=5, label=labels)
+            label = line.get('label', None)
+            plt.plot(x, y, 'o-', color=line_color, markersize=5, label=label)
 
             # Plot point texts
-            point_texts = line.get('points', [])
+            point_texts = line.get('point_labels', [])
             for i, text in enumerate(point_texts):
                 plt.text(x[i] + POINT_TEXT_OFFSET, y[i] + POINT_TEXT_OFFSET, text)
 
@@ -183,9 +265,15 @@ def plot_geometry(title: str, lines: list[GeometryLineDict] = None, polygons: li
 
 
 def add_polygon(polygon: PolygonDict):
-    x = np.append(polygon['x'], polygon['x'][0])
-    y = np.append(polygon['y'], polygon['y'][0])
-    points = polygon['points']
+    coords = polygon['coordinates']
+    x = coords[:, 0]  # Extract x coordinates
+    y = coords[:, 1]  # Extract y coordinates
+
+    # Close the polygon by adding the first point at the end
+    x = np.append(x, x[0])
+    y = np.append(y, y[0])
+
+    point_labels = polygon['point_labels']
     line_color = polygon.get('color', 'blue')
     fill_color = polygon.get('color', 'lightblue')
     label = polygon.get('label', None)
@@ -193,8 +281,8 @@ def add_polygon(polygon: PolygonDict):
     # Plot the polygon edges
     plt.plot(x, y, 'o-', color=line_color, markersize=5)
 
-    # Plot point texts
-    for i, txt in enumerate(points):
+    # Plot point texts (don't include the repeated first point)
+    for i, txt in enumerate(point_labels):
         plt.text(x[i] + POINT_TEXT_OFFSET, y[i] + POINT_TEXT_OFFSET, txt, fontsize=12)
 
     # Fill the polygon
@@ -269,3 +357,1005 @@ def get_segment_lines_by_peaks(x: ndarray[float], y: ndarray[float], threshold=N
         lines.append(line)
 
     return lines
+
+
+def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optional[tuple[float, float]] = None):
+    """
+    Plot polar curves by converting to cartesian coordinates.
+    This completely avoids matplotlib's polar plot auto-fill behavior.
+    
+    Args:
+        title (str): Title of the plot
+        curves (list[PolarCurveDict]): List of polar curves to plot
+        limits (Optional[tuple[float, float]]): Optional radial limits as (r_min, r_max)
+    """
+    plt.close('all')
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    # Make the plot square and centered
+    ax.set_aspect('equal')  # Set up grid circles and angle lines to mimic polar plot
+    max_r = 0
+    for curve in curves:
+        # Handle NaN values properly by using nanmax
+        valid_r = curve['r'][~np.isnan(curve['r'])]
+        if len(valid_r) > 0:
+            max_r = max(max_r, np.max(np.abs(valid_r)))
+
+    if limits:
+        max_r = max(max_r, abs(limits[1]) if limits[1] else max_r)
+
+    # Ensure we have a reasonable minimum max_r
+    if max_r == 0:
+        max_r = 5
+
+    max_r = max_r + 1  # Add some padding# Draw grid circles and add radial labels
+    radial_values = np.linspace(0, max_r, 6)[1:]  # Skip 0
+    for i, r in enumerate(radial_values):
+        circle = plt.Circle((0, 0), r, fill=False, color='gray', alpha=0.3, linewidth=0.5)
+        ax.add_patch(circle)
+
+        # Add radial labels along the positive x-axis
+        if r > 0:
+            ax.text(r, 0.1, f'{r:.1f}', ha='center', va='bottom', fontsize=9, color='gray')  # Draw angle lines for the main directions only
+    main_angles = [0, np.pi / 2, np.pi, 3 * np.pi / 2]  # 0°, 90°, 180°, 270°
+    for angle in main_angles:
+        x_line = [0, max_r * np.cos(angle)]
+        y_line = [0, max_r * np.sin(angle)]
+        ax.plot(x_line, y_line, color='gray', alpha=0.5, linewidth=0.8)  # Add theta tick labels at the cardinal directions
+    label_radius = max_r + 0.3  # Position labels slightly outside the grid
+    theta_labels = [(0, label_radius * np.cos(0), label_radius * np.sin(0), '0'),
+                    (np.pi / 2, label_radius * np.cos(np.pi / 2), label_radius * np.sin(np.pi / 2), '$\\frac{\\pi}{2}$'),
+                    (np.pi, label_radius * np.cos(np.pi), label_radius * np.sin(np.pi), '$\\pi$'),
+                    (3 * np.pi / 2, label_radius * np.cos(3 * np.pi / 2), label_radius * np.sin(3 * np.pi / 2), '$\\frac{3\\pi}{2}$')]
+
+    for angle, x_pos, y_pos, label_text in theta_labels:
+        ax.text(x_pos, y_pos, label_text, ha='center', va='center', fontsize=11, fontweight='bold')
+
+    # Remove axis ticks and labels
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+
+    for curve in curves:
+        theta = curve['theta']
+        r = curve['r']
+        line_color = curve.get('color', 'blue')
+        linestyle = curve.get('linestyle', '-')
+        label = curve.get('label', None)  # Convert polar to cartesian coordinates
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+
+        # Remove NaN values to avoid broken line segments
+        valid_mask = ~(np.isnan(x) | np.isnan(y))
+        if np.any(valid_mask):
+            x_valid = x[valid_mask]
+            y_valid = y[valid_mask]
+
+            # For curves with gaps (like lemniscates), we need to split at NaN boundaries
+            # to avoid connecting distant points
+            if not np.all(valid_mask):
+                # Find groups of consecutive valid points
+                diff = np.diff(np.concatenate(([False], valid_mask, [False])).astype(int))
+                starts = np.where(diff == 1)[0]
+                ends = np.where(diff == -1)[0]
+
+                # Plot each continuous segment separately
+                for start, end in zip(starts, ends):
+                    x_segment = x[start:end]
+                    y_segment = y[start:end]
+                    ax.plot(x_segment,
+                            y_segment,
+                            color=line_color,
+                            linestyle=linestyle,
+                            label=label if start == starts[0] else None,
+                            linewidth=1.5)
+            else:
+                # Plot the entire curve normally
+                ax.plot(x_valid, y_valid, color=line_color, linestyle=linestyle, label=label, linewidth=1.5)
+        else:
+            # All values are NaN, skip plotting
+            pass
+
+        # Plot points if specified
+        points = curve.get('points', [])
+        for point in points:
+            theta_val = point['x']  # theta is stored in x
+            r_val = point['y']  # r is stored in y
+            equal = point['equal'] if 'equal' in point else True
+            point_label = point.get('label', None)
+            point_color = line_color if equal else 'white'
+            marker_edge_color = None if equal else line_color
+
+            # Convert point to cartesian
+            x_point = r_val * np.cos(theta_val)
+            y_point = r_val * np.sin(theta_val)
+
+            ax.plot(x_point, y_point, 'o', color=point_color, markersize=5, markeredgewidth=1, markeredgecolor=marker_edge_color)
+
+            # Add label if specified
+            if point_label:
+                ax.annotate(point_label, xy=(x_point, y_point), xytext=(5, 5), textcoords='offset points')
+
+    # Set limits
+    if limits:
+        ax.set_xlim(-limits[1], limits[1])
+        ax.set_ylim(-limits[1], limits[1])
+    else:
+        ax.set_xlim(-max_r, max_r)
+        ax.set_ylim(-max_r, max_r)
+
+    # Add origin marker
+    ax.plot(0, 0, 'ko', markersize=3)  # Add title and legend
+    # Center the title at the top with enough space to avoid π/2 label
+    plt.suptitle(title, x=0.5, y=0.95, ha='center', va='top', fontsize=14, fontweight='bold')
+    has_label = any(curve.get('label') for curve in curves)
+    if has_label:
+        plt.legend(loc='upper right')
+
+    plt.show()
+
+
+def find_valid_theta_range(equation, max_r_threshold=None):
+    """
+    Find a valid theta range for plotting polar equations that might have asymptotes or undefined regions.
+    
+    Args:
+        equation: The polar equation function
+        max_r_threshold: Maximum reasonable r value (auto-detected if None)
+        
+    Returns:
+        tuple: (theta_start, theta_end) for a valid range, or list of ranges for discontinuous curves
+    """
+    # Test many points to find valid regions
+    test_points = 3600  # Test every 0.1 degrees for high precision
+    theta_tests = np.linspace(0, 2 * np.pi, test_points)
+    r_values = []
+    valid_indices = []
+
+    # First pass: collect all finite r values to determine appropriate threshold
+    for i, theta_test in enumerate(theta_tests):
+        try:
+            r_test = equation(theta_test)
+            if np.isfinite(r_test) and np.isreal(r_test):
+                r_values.append(abs(r_test))
+        except:
+            continue
+
+    # Auto-detect threshold if not provided
+    if max_r_threshold is None and r_values:
+        r_values = np.array(r_values)
+        # Use 95th percentile + 3*IQR to handle outliers while keeping most values
+        q75, q25 = np.percentile(r_values, [75, 25])
+        iqr = q75 - q25
+        p95 = np.percentile(r_values, 95)
+        max_r_threshold = max(p95 + 3 * iqr, 100)  # At least 100 for hyperbolas
+    elif max_r_threshold is None:
+        max_r_threshold = 1000  # Large default if no valid values found
+
+    # Second pass: find valid indices with the determined threshold
+    for i, theta_test in enumerate(theta_tests):
+        try:
+            r_test = equation(theta_test)
+            # Check if r is finite, real, and reasonable
+            if (np.isfinite(r_test) and np.isreal(r_test) and abs(r_test) < max_r_threshold):
+                valid_indices.append(i)
+        except:
+            continue
+
+    if len(valid_indices) == 0:
+        # If no valid ranges found, return a safe default
+        return (0, 2 * np.pi)
+
+    # Find continuous segments
+    segments = []
+    if len(valid_indices) > 0:
+        start_idx = valid_indices[0]
+        current_segment = [start_idx]
+
+        for i in range(1, len(valid_indices)):
+            # If there's a gap larger than 5 indices (about 0.5 degrees)
+            if valid_indices[i] - valid_indices[i - 1] > 5:
+                # End current segment
+                end_idx = valid_indices[i - 1]
+                segments.append((theta_tests[start_idx], theta_tests[end_idx]))
+                # Start new segment
+                start_idx = valid_indices[i]
+
+        # Add the final segment
+        end_idx = valid_indices[-1]
+        segments.append((theta_tests[start_idx], theta_tests[end_idx]))
+
+    # For parabolas and hyperbolas with asymptotes, handle wrapping segments intelligently
+    if len(segments) >= 2:
+        # Check if we have segments at the start and end that might be part of the same curve
+        first_seg = segments[0]
+        last_seg = segments[-1]
+
+        # Case 1: Two segments wrapping around 0/2π (typical parabola)
+        if len(segments) == 2 and first_seg[0] < 0.2 and last_seg[1] > 2 * np.pi - 0.2:
+            # This is likely a parabola wrapping around - use nearly full range
+            gap_start = first_seg[1]
+            gap_end = last_seg[0]
+            gap_center = (gap_start + gap_end) / 2
+            # Start slightly after gap and go nearly full circle
+            return (gap_center + 0.1, gap_center + 2 * np.pi - 0.1)
+
+        # Case 2: Multiple segments (typical hyperbola with multiple branches)
+        # For hyperbolas and other multi-segment curves, just use the full range
+        # The filtering in plot_polar_equation will handle discontinuities by setting them to NaN
+        return (0, 2 * np.pi)
+
+    # Return the longest segment for single segment cases
+    if segments:
+        longest_segment = max(segments, key=lambda seg: seg[1] - seg[0])
+        return longest_segment
+
+    return (0, 2 * np.pi)
+
+
+def plot_polar_equation(title: str,
+                        equation,
+                        n_points=1000,
+                        show_vertices=True,
+                        min_vertex_distance=0.05,
+                        theta_range=None,
+                        max_r=None,
+                        **kwargs):
+    """
+    Plot a polar equation of the form r = f(theta).
+    
+    Args:
+        title (str): Title of the plot
+        equation (callable): Function that takes theta and returns r
+        n_points (int): Number of points to plot
+        show_vertices (bool): If True, find and mark vertices of the curve
+        min_vertex_distance (float): Minimum distance between vertices to avoid duplicates
+        theta_range (tuple): Optional (start, end) range for theta. If None, uses (0, 2π)
+        max_r (float): Optional maximum r value to display. If None, auto-detects based on data statistics
+        **kwargs: Additional arguments to pass to the plot function (color, linestyle, label)
+    """
+    # Determine theta range
+    if theta_range is None:
+        # Try to auto-detect if this might be an open curve by testing the equation
+        try:
+            # Test a few values to see if we get complex numbers or very large values
+            test_thetas = np.linspace(0, 2 * np.pi, 100)
+            test_r = equation(test_thetas)
+
+            # Check for issues that indicate we should use a restricted range
+            has_complex = np.any(np.iscomplex(test_r))
+            has_infinite = np.any(np.isinf(np.abs(test_r)))
+            has_very_large = np.any(np.abs(test_r) > 1000)
+
+            if has_complex or has_infinite or has_very_large:
+                # This might be an open curve - try to find a good range
+                theta_range = find_valid_theta_range(equation)
+            else:
+                theta_range = (0, 2 * np.pi)
+        except:
+            theta_range = (0, 2 * np.pi)
+
+    # Generate theta values
+    theta = np.linspace(theta_range[0], theta_range[1], n_points)
+    r = equation(theta)
+    r = np.broadcast_to(r, theta.shape)
+
+    # Filter out extreme values that can distort the plot
+    # Use adaptive threshold based on the data, or user-specified max_r
+    if max_r is not None:
+        # User specified a maximum r value
+        max_reasonable_r = max_r
+    else:
+        # Auto-detect threshold based on data statistics
+        finite_r = r[np.isfinite(r) & np.isreal(r)]
+        if len(finite_r) > 0:
+            r_std = np.std(np.abs(finite_r))
+            r_mean = np.mean(np.abs(finite_r))
+            # Use a more generous threshold for hyperbolas and other open curves
+            max_reasonable_r = max(r_mean + 5 * r_std, 1000)
+        else:
+            max_reasonable_r = 1000
+
+    valid_mask = (np.isfinite(r) & np.isreal(r) & (np.abs(r) < max_reasonable_r))
+
+    # Replace invalid values with NaN to create gaps in the plot
+    r_filtered = np.where(valid_mask, r, np.nan)
+
+    # Create curve dictionary
+    curve = {
+        'theta': theta,
+        'r': r_filtered,
+        'color': kwargs.get('color', 'blue'),
+        'linestyle': kwargs.get('linestyle', '-'),
+        'label': kwargs.get('label', None)
+    }  # Add vertices if requested
+    if show_vertices:  # Find vertices of the equation using the same theta range
+        vertices = find_polar_vertices(equation, theta_range, n_points, min_vertex_distance)
+
+        vertex_points = []
+
+        # Use a more sophisticated approach for duplicate detection that considers
+        # both polar coordinates and their cartesian equivalents
+        def cartesian_tuple(theta, r):
+            """Convert to cartesian and round for duplicate detection"""
+            x = r * np.cos(theta)
+            y = r * np.sin(theta)
+            return (round(x, 1), round(y, 1))  # Use coarser precision for cartesian coordinates
+
+        marked_cartesian_set = set()
+
+        for theta_v, r_v in vertices:
+            r_v_rounded = round(r_v, 2)
+
+            # Convert to cartesian for duplicate detection
+            cart_tuple = cartesian_tuple(theta_v, r_v)
+
+            # Only add the point if we haven't already marked this cartesian location
+            if cart_tuple not in marked_cartesian_set:
+                point = {'x': theta_v, 'y': r_v, 'equal': True, 'label': f"({get_pi_fraction_string(theta_v)}, {r_v_rounded})"}
+                vertex_points.append(point)
+                marked_cartesian_set.add(cart_tuple)
+
+        curve['points'] = vertex_points  # Print vertices information (but filter to only show unique cartesian points)
+        unique_vertices = []
+        seen_cartesian = set()
+        for theta_v, r_v in vertices:
+            cart_tuple = cartesian_tuple(theta_v, r_v)
+            if cart_tuple not in seen_cartesian:
+                unique_vertices.append((theta_v, r_v))
+                seen_cartesian.add(cart_tuple)
+
+        print(f"Found {len(unique_vertices)} vertices:")
+        for i, (theta_v, r_v) in enumerate(unique_vertices):
+            r_v_rounded = round(r_v, 2)
+            print(f"Vertex {i+1}: θ = {get_pi_fraction_string(theta_v)}, r = {r_v_rounded}"
+                 )  # Plot the polar curve using cartesian coordinates
+    plot_polar_cartesian(title, [curve], None)
+
+
+def plot_circle(h: float, k: float, r: float, limits: LimitDict = None, title: str = None):
+    """
+    Plot a circle with center (h, k) and radius r
+    
+    Args:
+        h (float): x-coordinate of center
+        k (float): y-coordinate of center  
+        r (float): radius
+        limits (LimitDict): Optional plot limits
+        title (str): Optional custom title
+    """
+    # Create the plot
+    plt.figure(figsize=(8, 6))
+    setup_plot(limits)
+
+    # Create circle patch
+    circle = patches.Circle((h, k), r, fill=False, edgecolor='blue', linewidth=2)
+    plt.gca().add_patch(circle)
+
+    # Mark center
+    plt.scatter([h], [k], color='red', s=50, zorder=5)
+    plt.annotate(f'Center ({h}, {k})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    # Set equal aspect ratio to ensure circle appears circular
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        plt.title(f'Circle: Center ({h}, {k}), Radius {r}')
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.show()
+
+
+def plot_ellipse(h: float, k: float, a: float, b: float, limits: LimitDict = None, title: str = None):
+    """
+    Plot an ellipse with center (h, k) and semi-axes a and b
+    
+    Args:
+        h (float): x-coordinate of center
+        k (float): y-coordinate of center
+        a (float): semi-major axis length (horizontal)
+        b (float): semi-minor axis length (vertical)
+        limits (LimitDict): Optional plot limits
+        title (str): Optional custom title
+    """
+    # Create the plot
+    plt.figure(figsize=(8, 6))
+    setup_plot(limits)
+
+    # Create ellipse patch (width=2*a, height=2*b)
+    ellipse = patches.Ellipse((h, k), width=2 * a, height=2 * b, fill=False, edgecolor='blue', linewidth=2)
+    plt.gca().add_patch(ellipse)
+
+    # Mark center
+    plt.scatter([h], [k], color='red', s=50, zorder=5)
+    plt.annotate(f'Center ({h}, {k})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    # Calculate foci distance from center
+    # For ellipse: c² = |major_axis² - minor_axis²|
+    if a > b:  # Horizontal ellipse (major axis is horizontal)
+        c = math.sqrt(a**2 - b**2)  # Distance from center to each focus
+
+        # Mark vertices at (h±a, k)
+        plt.scatter([h - a, h + a], [k, k], color='green', s=30, zorder=5)
+        plt.annotate(f'Vertex ({h-a:.1f}, {k})', xy=(h - a, k), xytext=(-10, 10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h+a:.1f}, {k})', xy=(h + a, k), xytext=(10, 10), textcoords='offset points', fontsize=8)
+
+        # Mark foci at (h±c, k)
+        plt.scatter([h - c, h + c], [k, k], color='orange', s=40, marker='x', zorder=5)
+        plt.annotate(f'Focus ({h-c:.1f}, {k})', xy=(h - c, k), xytext=(-10, -15), textcoords='offset points', fontsize=8, color='orange')
+        plt.annotate(f'Focus ({h+c:.1f}, {k})', xy=(h + c, k), xytext=(10, -15), textcoords='offset points', fontsize=8, color='orange')
+
+    elif b > a:  # Vertical ellipse (major axis is vertical)
+        c = math.sqrt(b**2 - a**2)  # Distance from center to each focus
+
+        # Mark vertices at (h, k±b)
+        plt.scatter([h, h], [k - b, k + b], color='green', s=30, zorder=5)
+        plt.annotate(f'Vertex ({h}, {k-b:.1f})', xy=(h, k - b), xytext=(10, -10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h}, {k+b:.1f})', xy=(h, k + b), xytext=(10, 10), textcoords='offset points', fontsize=8)
+
+        # Mark foci at (h, k±c)
+        plt.scatter([h, h], [k - c, k + c], color='orange', s=40, marker='x', zorder=5)
+        plt.annotate(f'Focus ({h}, {k-c:.1f})', xy=(h, k - c), xytext=(15, -10), textcoords='offset points', fontsize=8, color='orange')
+        plt.annotate(f'Focus ({h}, {k+c:.1f})', xy=(h, k + c), xytext=(15, 10), textcoords='offset points', fontsize=8, color='orange')
+
+    else:  # Circle case (a == b), no foci (or foci coincide at center)
+        # Mark vertices at (h±a, k) and (h, k±b)
+        plt.scatter([h - a, h + a], [k, k], color='green', s=30, zorder=5)
+        plt.scatter([h, h], [k - b, k + b], color='green', s=30, zorder=5)
+        plt.annotate(f'Vertex ({h-a:.1f}, {k})', xy=(h - a, k), xytext=(-10, 10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h+a:.1f}, {k})', xy=(h + a, k), xytext=(10, 10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h}, {k-b:.1f})', xy=(h, k - b), xytext=(10, -10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h}, {k+b:.1f})', xy=(h, k + b), xytext=(10, 10), textcoords='offset points', fontsize=8)
+
+        # Note: For a circle, foci coincide at the center (already marked)
+
+    # Set equal aspect ratio to ensure proper ellipse shape
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        plt.title(f'Ellipse: Center ({h}, {k}), a={a}, b={b}')
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.show()
+
+
+def plot_parabola(h: float, k: float, p: float, orientation: str = "vertical", limits: LimitDict = None, title: str = None):
+    """
+    Plot a parabola with vertex (h, k) and parameter p
+    
+    Args:
+        h (float): x-coordinate of vertex
+        k (float): y-coordinate of vertex
+        p (float): distance from vertex to focus (determines the "width" of parabola)
+                  If p > 0: opens up (vertical) or right (horizontal)
+                  If p < 0: opens down (vertical) or left (horizontal)
+        orientation (str): "vertical" for (x-h)² = 4p(y-k), 
+                          "horizontal" for (y-k)² = 4p(x-h)
+        limits (LimitDict): Optional plot limits
+        title (str): Optional custom title
+    """
+    # Create the plot
+    plt.figure(figsize=(8, 6))
+    setup_plot(limits)
+
+    # Determine plot range based on limits or default
+    if limits:
+        x_range = np.linspace(limits['x'][0], limits['x'][1], 1000)
+        y_range = np.linspace(limits['y'][0], limits['y'][1], 1000)
+    else:
+        x_range = np.linspace(-10, 10, 1000)
+        y_range = np.linspace(-10, 10, 1000)
+
+    if orientation == "vertical":
+        # Vertical parabola: (x-h)² = 4p(y-k)
+        # Solve for y: y = k + (x-h)²/(4p)
+
+        # Generate x values around the vertex
+        x_vals = x_range
+        y_vals = k + (x_vals - h)**2 / (4 * p)
+
+        # Filter points within plot limits
+        if limits:
+            mask = (y_vals >= limits['y'][0]) & (y_vals <= limits['y'][1])
+            x_vals, y_vals = x_vals[mask], y_vals[mask]
+
+        # Plot the parabola
+        plt.plot(x_vals, y_vals, 'b-', linewidth=2, label='Parabola')
+
+        # Mark focus at (h, k + p)
+        focus_x, focus_y = h, k + p
+        plt.scatter([focus_x], [focus_y], color='orange', s=50, marker='x', zorder=5)
+        plt.annotate(f'Focus ({focus_x}, {focus_y:.1f})',
+                     xy=(focus_x, focus_y),
+                     xytext=(15, 15),
+                     textcoords='offset points',
+                     fontsize=8,
+                     color='orange')
+
+        # Draw directrix line at y = k - p
+        directrix_y = k - p
+        if limits:
+            directrix_x = [limits['x'][0], limits['x'][1]]
+        else:
+            directrix_x = [x_range[0], x_range[-1]]
+        plt.plot(directrix_x, [directrix_y, directrix_y], 'g--', linewidth=1, alpha=0.7, label=f'Directrix: y = {directrix_y:.1f}')
+
+        # Mark vertex
+        plt.scatter([h], [k], color='red', s=50, zorder=5)
+        plt.annotate(f'Vertex ({h}, {k})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    else:  # horizontal orientation
+        # Horizontal parabola: (y-k)² = 4p(x-h)
+        # Solve for x: x = h + (y-k)²/(4p)
+
+        # Generate y values around the vertex
+        y_vals = y_range
+        x_vals = h + (y_vals - k)**2 / (4 * p)
+
+        # Filter points within plot limits
+        if limits:
+            mask = (x_vals >= limits['x'][0]) & (x_vals <= limits['x'][1])
+            x_vals, y_vals = x_vals[mask], y_vals[mask]
+
+        # Plot the parabola
+        plt.plot(x_vals, y_vals, 'b-', linewidth=2, label='Parabola')
+
+        # Mark focus at (h + p, k)
+        focus_x, focus_y = h + p, k
+        plt.scatter([focus_x], [focus_y], color='orange', s=50, marker='x', zorder=5)
+        plt.annotate(f'Focus ({focus_x:.1f}, {focus_y})',
+                     xy=(focus_x, focus_y),
+                     xytext=(15, 15),
+                     textcoords='offset points',
+                     fontsize=8,
+                     color='orange')
+
+        # Draw directrix line at x = h - p
+        directrix_x = h - p
+        if limits:
+            directrix_y = [limits['y'][0], limits['y'][1]]
+        else:
+            directrix_y = [y_range[0], y_range[-1]]
+        plt.plot([directrix_x, directrix_x], directrix_y, 'g--', linewidth=1, alpha=0.7, label=f'Directrix: x = {directrix_x:.1f}')
+
+        # Mark vertex
+        plt.scatter([h], [k], color='red', s=50, zorder=5)
+        plt.annotate(f'Vertex ({h}, {k})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    # Set equal aspect ratio
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        direction = "Up" if (orientation == "vertical" and p > 0) else \
+                   "Down" if (orientation == "vertical" and p < 0) else \
+                   "Right" if (orientation == "horizontal" and p > 0) else "Left"
+        plt.title(f'{direction} Opening Parabola: Vertex ({h}, {k}), p={p}')
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.legend()
+    plt.show()
+
+
+def plot_hyperbola(h: float, k: float, a: float, b: float, orientation: str = "horizontal", limits: LimitDict = None, title: str = None):
+    """
+    Plot a hyperbola with center (h, k) and parameters a and b
+    
+    Args:
+        h (float): x-coordinate of center
+        k (float): y-coordinate of center
+        a (float): distance from center to vertices (for horizontal) or parameter (for vertical)
+        b (float): parameter for the hyperbola equation
+        orientation (str): "horizontal" for (x-h)²/a² - (y-k)²/b² = 1, 
+                          "vertical" for (y-k)²/a² - (x-h)²/b² = 1
+        limits (LimitDict): Optional plot limits
+        title (str): Optional custom title
+    """
+    # Create the plot
+    plt.figure(figsize=(8, 6))
+    setup_plot(limits)
+
+    # Determine plot range based on limits or default
+    if limits:
+        x_range = np.linspace(limits['x'][0], limits['x'][1], 1000)
+        y_range = np.linspace(limits['y'][0], limits['y'][1], 1000)
+    else:
+        x_range = np.linspace(-10, 10, 1000)
+        y_range = np.linspace(-10, 10, 1000)
+
+    # Calculate foci distance: c² = a² + b²
+    c = math.sqrt(a**2 + b**2)
+
+    if orientation == "horizontal":
+        # Horizontal hyperbola: (x-h)²/a² - (y-k)²/b² = 1
+
+        # Plot right branch: x = h + a*cosh(t), y = k + b*sinh(t)
+        t = np.linspace(0, 3, 200)  # Use parametric form for smooth curves
+        x_right = h + a * np.cosh(t)
+        y_right_pos = k + b * np.sinh(t)
+        y_right_neg = k - b * np.sinh(t)
+
+        # Plot left branch: x = h - a*cosh(t), y = k ± b*sinh(t)
+        x_left = h - a * np.cosh(t)
+        y_left_pos = k + b * np.sinh(t)
+        y_left_neg = k - b * np.sinh(t)
+
+        # Filter points within the plot limits
+        if limits:
+            # Right branch
+            mask_right = (x_right >= limits['x'][0]) & (x_right <= limits['x'][1])
+            x_right, y_right_pos, y_right_neg = x_right[mask_right], y_right_pos[mask_right], y_right_neg[mask_right]
+
+            # Left branch
+            mask_left = (x_left >= limits['x'][0]) & (x_left <= limits['x'][1])
+            x_left, y_left_pos, y_left_neg = x_left[mask_left], y_left_pos[mask_left], y_left_neg[mask_left]
+
+        # Plot the hyperbola branches
+        plt.plot(x_right, y_right_pos, 'b-', linewidth=2, label='Hyperbola')
+        plt.plot(x_right, y_right_neg, 'b-', linewidth=2)
+        plt.plot(x_left, y_left_pos, 'b-', linewidth=2)
+        plt.plot(x_left, y_left_neg, 'b-', linewidth=2)
+
+        # Plot asymptotes: y = k ± (b/a)(x - h)
+        x_asym = x_range
+        y_asym_pos = k + (b / a) * (x_asym - h)
+        y_asym_neg = k - (b / a) * (x_asym - h)
+        plt.plot(x_asym, y_asym_pos, 'r--', linewidth=1, alpha=0.7, label='Asymptotes')
+        plt.plot(x_asym, y_asym_neg, 'r--', linewidth=1, alpha=0.7)
+
+        # Mark vertices at (h±a, k)
+        plt.scatter([h - a, h + a], [k, k], color='green', s=40, zorder=5)
+        plt.annotate(f'Vertex ({h-a:.1f}, {k})', xy=(h - a, k), xytext=(-15, 10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h+a:.1f}, {k})', xy=(h + a, k), xytext=(15, 10), textcoords='offset points', fontsize=8)
+
+        # Mark foci at (h±c, k)
+        plt.scatter([h - c, h + c], [k, k], color='orange', s=50, marker='x', zorder=5)
+        plt.annotate(f'Focus ({h-c:.1f}, {k})', xy=(h - c, k), xytext=(-15, -15), textcoords='offset points', fontsize=8, color='orange')
+        plt.annotate(f'Focus ({h+c:.1f}, {k})', xy=(h + c, k), xytext=(15, -15), textcoords='offset points', fontsize=8, color='orange')
+
+    else:  # vertical orientation
+        # Vertical hyperbola: (y-k)²/a² - (x-h)²/b² = 1
+
+        # Plot upper branch: y = k + a*cosh(t), x = h ± b*sinh(t)
+        t = np.linspace(0, 3, 200)
+        y_upper = k + a * np.cosh(t)
+        x_upper_pos = h + b * np.sinh(t)
+        x_upper_neg = h - b * np.sinh(t)
+
+        # Plot lower branch: y = k - a*cosh(t), x = h ± b*sinh(t)
+        y_lower = k - a * np.cosh(t)
+        x_lower_pos = h + b * np.sinh(t)
+        x_lower_neg = h - b * np.sinh(t)
+
+        # Filter points within the plot limits
+        if limits:
+            # Upper branch
+            mask_upper = (y_upper >= limits['y'][0]) & (y_upper <= limits['y'][1])
+            y_upper, x_upper_pos, x_upper_neg = y_upper[mask_upper], x_upper_pos[mask_upper], x_upper_neg[mask_upper]
+
+            # Lower branch
+            mask_lower = (y_lower >= limits['y'][0]) & (y_lower <= limits['y'][1])
+            y_lower, x_lower_pos, x_lower_neg = y_lower[mask_lower], x_lower_pos[mask_lower], x_lower_neg[mask_lower]
+
+        # Plot the hyperbola branches
+        plt.plot(x_upper_pos, y_upper, 'b-', linewidth=2, label='Hyperbola')
+        plt.plot(x_upper_neg, y_upper, 'b-', linewidth=2)
+        plt.plot(x_lower_pos, y_lower, 'b-', linewidth=2)
+        plt.plot(x_lower_neg, y_lower, 'b-', linewidth=2)
+
+        # Plot asymptotes: y = k ± (a/b)(x - h)
+        x_asym = x_range
+        y_asym_pos = k + (a / b) * (x_asym - h)
+        y_asym_neg = k - (a / b) * (x_asym - h)
+        plt.plot(x_asym, y_asym_pos, 'r--', linewidth=1, alpha=0.7, label='Asymptotes')
+        plt.plot(x_asym, y_asym_neg, 'r--', linewidth=1, alpha=0.7)
+
+        # Mark vertices at (h, k±a)
+        plt.scatter([h, h], [k - a, k + a], color='green', s=40, zorder=5)
+        plt.annotate(f'Vertex ({h}, {k-a:.1f})', xy=(h, k - a), xytext=(15, -10), textcoords='offset points', fontsize=8)
+        plt.annotate(f'Vertex ({h}, {k+a:.1f})', xy=(h, k + a), xytext=(15, 10), textcoords='offset points', fontsize=8)
+
+        # Mark foci at (h, k±c)
+        plt.scatter([h, h], [k - c, k + c], color='orange', s=50, marker='x', zorder=5)
+        plt.annotate(f'Focus ({h}, {k-c:.1f})', xy=(h, k - c), xytext=(20, -15), textcoords='offset points', fontsize=8, color='orange')
+        plt.annotate(f'Focus ({h}, {k+c:.1f})', xy=(h, k + c), xytext=(20, 15), textcoords='offset points', fontsize=8, color='orange')
+
+    # Mark center
+    plt.scatter([h], [k], color='red', s=50, zorder=5)
+    plt.annotate(f'Center ({h}, {k})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    # Set equal aspect ratio
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        orientation_text = "Horizontal" if orientation == "horizontal" else "Vertical"
+        plt.title(f'{orientation_text} Hyperbola: Center ({h}, {k}), a={a}, b={b}')
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.legend()
+    plt.show()
+
+
+def analyze_general_conic(A: float, B: float, C: float, D: float, E: float, F: float):
+    """
+    Analyze a general conic section: Ax² + Bxy + Cy² + Dx + Ey + F = 0
+    
+    Returns:
+        dict: Contains conic type, rotation angle, canonical form parameters, and center
+    """
+    # Calculate discriminant to determine conic type
+    discriminant = B**2 - 4 * A * C
+
+    # Determine conic type
+    if abs(discriminant) < 1e-10:  # discriminant ≈ 0
+        conic_type = "parabola"
+    elif discriminant < 0:
+        conic_type = "ellipse"  # or circle
+    else:  # discriminant > 0
+        conic_type = "hyperbola"
+
+    # Calculate rotation angle θ
+    if abs(B) < 1e-10:  # B ≈ 0, no rotation
+        theta = 0
+    else:
+        theta = 0.5 * math.atan2(B, A - C)
+
+    # Rotation matrix coefficients
+    cos_theta = math.cos(theta)
+    sin_theta = math.sin(theta)
+
+    # Transform coefficients to eliminate xy term
+    # Using rotation formulas: x = x'cos(θ) - y'sin(θ), y = x'sin(θ) + y'cos(θ)
+    A_prime = A * cos_theta**2 + B * cos_theta * sin_theta + C * sin_theta**2
+    C_prime = A * sin_theta**2 - B * cos_theta * sin_theta + C * cos_theta**2
+    D_prime = D * cos_theta + E * sin_theta
+    E_prime = -D * sin_theta + E * cos_theta
+    F_prime = F
+
+    # Find center (h', k') in rotated coordinate system
+    if conic_type == "parabola":
+        # For parabola, handle differently based on which coefficient is zero
+        if abs(A_prime) < 1e-10:  # A' ≈ 0, vertical parabola in rotated system
+            h_prime = -E_prime / (2 * C_prime)
+            # k' is determined by completing the square in the other variable
+            k_prime = -(D_prime**2) / (4 * A_prime) if abs(A_prime) > 1e-10 else 0
+        else:  # C' ≈ 0, horizontal parabola in rotated system
+            k_prime = -D_prime / (2 * A_prime)
+            h_prime = -(E_prime**2) / (4 * C_prime) if abs(C_prime) > 1e-10 else 0
+    else:
+        # For ellipse and hyperbola
+        if abs(A_prime) > 1e-10 and abs(C_prime) > 1e-10:
+            h_prime = -D_prime / (2 * A_prime)
+            k_prime = -E_prime / (2 * C_prime)
+        else:
+            h_prime = k_prime = 0
+
+    # Transform center back to original coordinate system
+    h = h_prime * cos_theta - k_prime * sin_theta
+    k = h_prime * sin_theta + k_prime * cos_theta
+
+    # Round center coordinates for readability
+    h = round(h, 4)
+    k = round(k, 4)
+
+    # Calculate canonical form parameters
+    canonical_params = {}
+
+    if conic_type in ["ellipse", "hyperbola"]:
+        # Complete the square and get standard form
+        # After translation: A'(x')² + C'(y')² = -F''
+        F_double_prime = F_prime + A_prime * h_prime**2 + C_prime * k_prime**2
+
+        if abs(F_double_prime) > 1e-10:
+            a_squared = -F_double_prime / A_prime
+            b_squared = -F_double_prime / C_prime
+
+            if a_squared > 0 and b_squared > 0:
+                a = math.sqrt(abs(a_squared))
+                b = math.sqrt(abs(b_squared))
+                # Round to 4 decimal places for readability
+                canonical_params = {"a": round(a, 4), "b": round(b, 4)}
+            else:
+                canonical_params = {"a": 1, "b": 1}  # Default values
+        else:
+            canonical_params = {"a": 1, "b": 1}  # Default values
+
+    elif conic_type == "parabola":
+        # For parabola: (x')² = 4p(y') or (y')² = 4p(x')
+        if abs(A_prime) < 1e-10:  # Vertical parabola
+            p = -D_prime / (4 * C_prime) if abs(C_prime) > 1e-10 else 1
+            # Round to 4 decimal places for readability
+            canonical_params = {"p": round(p, 4), "orientation": "vertical"}
+        else:  # Horizontal parabola
+            p = -E_prime / (4 * A_prime) if abs(A_prime) > 1e-10 else 1
+            # Round to 4 decimal places for readability
+            canonical_params = {"p": round(p, 4), "orientation": "horizontal"}
+
+    return {
+        "type": conic_type,
+        "discriminant": round(discriminant, 4),
+        "rotation_angle": theta,
+        "rotation_angle_degrees": round(math.degrees(theta), 2),
+        "center": (h, k),
+        "canonical_params": canonical_params,
+        "transformed_coefficients": {
+            "A_prime": round(A_prime, 4),
+            "C_prime": round(C_prime, 4),
+            "D_prime": round(D_prime, 4),
+            "E_prime": round(E_prime, 4),
+            "F_prime": round(F_prime, 4)
+        }
+    }
+
+
+def plot_rotated_conic(A: float,
+                       B: float,
+                       C: float,
+                       D: float,
+                       E: float,
+                       F: float,
+                       limits: LimitDict = None,
+                       title: str = None,
+                       n_points: int = 1000):
+    """
+    Plot a general conic section: Ax² + Bxy + Cy² + Dx + Ey + F = 0
+    
+    Args:
+        A, B, C, D, E, F: Coefficients of the general conic equation
+        limits: Plot limits
+        title: Custom title
+        n_points: Number of points for plotting
+    """
+    # Analyze the conic
+    analysis = analyze_general_conic(A, B, C, D, E, F)
+
+    plt.figure(figsize=(10, 8))
+    setup_plot(limits)
+
+    # Determine plot range
+    if limits:
+        x_range = np.linspace(limits['x'][0], limits['x'][1], n_points)
+        y_range = np.linspace(limits['y'][0], limits['y'][1], n_points)
+    else:
+        x_range = np.linspace(-10, 10, n_points)
+        y_range = np.linspace(-10, 10, n_points)
+
+    # Create meshgrid for contour plotting
+    X, Y = np.meshgrid(x_range, y_range)
+    Z = A * X**2 + B * X * Y + C * Y**2 + D * X + E * Y + F
+
+    # Plot the conic using contour
+    contour = plt.contour(X, Y, Z, levels=[0], colors=['blue'], linewidths=2)
+
+    # Extract and plot the conic curve more smoothly
+    try:
+        # Get contour paths and plot each path separately to avoid unwanted connections
+        first_path = True
+        for collection in contour.collections:
+            for path in collection.get_paths():
+                vertices = path.vertices
+                if len(vertices) > 0:
+                    # For hyperbolas, we need to check if this is a separate branch
+                    # by looking at the distance between consecutive points
+                    if analysis["type"] == "hyperbola" and len(vertices) > 10:
+                        # Split at large gaps to separate branches
+                        segments = []
+                        current_segment = [vertices[0]]
+
+                        for i in range(1, len(vertices)):
+                            # Calculate distance between consecutive points
+                            dist = np.sqrt((vertices[i][0] - vertices[i - 1][0])**2 + (vertices[i][1] - vertices[i - 1][1])**2)
+
+                            # If distance is too large, start a new segment
+                            if dist > 2.0:  # Threshold for breaking segments
+                                if len(current_segment) > 1:
+                                    segments.append(np.array(current_segment))
+                                current_segment = [vertices[i]]
+                            else:
+                                current_segment.append(vertices[i])
+
+                        # Add the last segment
+                        if len(current_segment) > 1:
+                            segments.append(np.array(current_segment))
+
+                        # Plot each segment separately
+                        for j, segment in enumerate(segments):
+                            if len(segment) > 1:
+                                label = f'{analysis["type"].title()}' if first_path and j == 0 else None
+                                plt.plot(segment[:, 0], segment[:, 1], 'b-', linewidth=2, label=label)
+                                first_path = False
+                    else:
+                        # For ellipses and parabolas, plot normally
+                        label = f'{analysis["type"].title()}' if first_path else None
+                        plt.plot(vertices[:, 0], vertices[:, 1], 'b-', linewidth=2, label=label)
+                        first_path = False
+    except Exception as e:
+        # Fallback to contour if path extraction fails
+        print(f"Warning: Path extraction failed ({e}), using contour plot")
+        pass
+
+    # Plot center
+    h, k = analysis["center"]
+    plt.scatter([h], [k], color='red', s=50, zorder=5)
+    plt.annotate(f'Center ({h:.2f}, {k:.2f})', xy=(h, k), xytext=(5, 5), textcoords='offset points', fontsize=10)
+
+    # Draw rotated axes if there's rotation
+    theta = analysis["rotation_angle"]
+    if abs(theta) > 1e-3:  # Only draw if there's significant rotation
+        # Draw rotated axes through the center
+        axis_length = 3
+
+        # x' axis (rotated x-axis)
+        x_axis_end = h + axis_length * math.cos(theta)
+        y_axis_end = k + axis_length * math.sin(theta)
+        plt.arrow(h - axis_length * math.cos(theta),
+                  k - axis_length * math.sin(theta),
+                  2 * axis_length * math.cos(theta),
+                  2 * axis_length * math.sin(theta),
+                  head_width=0.2,
+                  head_length=0.3,
+                  fc='green',
+                  ec='green',
+                  alpha=0.7)
+        plt.text(x_axis_end + 0.3, y_axis_end + 0.3, "x'", fontsize=12, color='green')
+
+        # y' axis (rotated y-axis)
+        x_axis_end = h - axis_length * math.sin(theta)
+        y_axis_end = k + axis_length * math.cos(theta)
+        plt.arrow(h + axis_length * math.sin(theta),
+                  k - axis_length * math.cos(theta),
+                  -2 * axis_length * math.sin(theta),
+                  2 * axis_length * math.cos(theta),
+                  head_width=0.2,
+                  head_length=0.3,
+                  fc='purple',
+                  ec='purple',
+                  alpha=0.7)
+        plt.text(x_axis_end + 0.3, y_axis_end + 0.3, "y'", fontsize=12, color='purple')
+
+    # Set equal aspect ratio
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    # Set title
+    if title:
+        plt.title(title)
+    else:
+        angle_deg = analysis["rotation_angle_degrees"]
+        plt.title(f'{analysis["type"].title()}: Rotation = {angle_deg:.1f}°')
+
+    # Add rotation angle text
+    angle_deg = analysis["rotation_angle_degrees"]
+    if abs(angle_deg) > 0.1:
+        plt.text(0.02,
+                 0.98,
+                 f'Rotation angle: {angle_deg:.1f}°',
+                 transform=plt.gca().transAxes,
+                 fontsize=10,
+                 verticalalignment='top',
+                 bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+
+    plt.xlabel('x')
+    plt.ylabel('y', rotation=0)
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.show()
+
+    return analysis
