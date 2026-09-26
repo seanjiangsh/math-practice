@@ -1,0 +1,7 @@
+# Normalize line endings: store LF in the repo, use the OS default on checkout
+* text=auto
+
+# Binary files: never convert
+*.png binary
+*.jpg binary
+*.pdf binary
