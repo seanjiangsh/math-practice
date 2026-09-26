@@ -1,6 +1,6 @@
 import math
 import sympy as sp
-from typing import Tuple, Dict, Union, Optional, List
+from typing import Tuple, Dict, Union, List
 
 
 def degrees_to_radians(degrees: float, symbolic=False) -> float:
@@ -19,7 +19,7 @@ def degrees_to_radians(degrees: float, symbolic=False) -> float:
         return degrees * math.pi / 180.0
 
 
-def radians_to_degrees(radians: any, symbolic=False) -> float:
+def radians_to_degrees(radians: Union[float, sp.Expr], symbolic=False) -> float:
     """
     Convert an angle in radians to degrees.
     
@@ -67,12 +67,12 @@ def DMS_to_degrees(DMS: Tuple[int, int, float]) -> float:
     return degrees
 
 
-def radian_to_degrees(radian: any) -> float:
+def radian_to_degrees(radian: Union[float, sp.Expr]) -> float:
     """
     Convert an angle in radians to degrees.
     
     Args:
-        radian (any): The angle in radians.
+        radian (float | sp.Expr): The angle in radians.
     
     Returns:
         float: The angle in degrees.
@@ -757,8 +757,6 @@ def solve_triangle_SAS(side_a: float,
     # Setup math functions based on symbolic flag
     cos_func = sp.cos if symbolic else math.cos
     acos_func = sp.acos if symbolic else math.acos
-    sin_func = sp.sin if symbolic else math.sin
-    asin_func = sp.asin if symbolic else math.asin
     pi_val = sp.pi if symbolic else math.pi
 
     # Calculate the third side using the law of cosines: c² = a² + b² - 2ab·cos(C)

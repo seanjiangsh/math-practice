@@ -1,18 +1,17 @@
-# Type definitions
-
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.patches import FancyArrowPatch
 import numpy as np
-import sympy as sp
 import math
-import re
 from scipy.signal import find_peaks
 
 from numpy import ndarray
 from typing import TypedDict, Optional
 
 from preCalculus import get_pi_fraction_string, find_polar_vertices
+
+
+# Type definitions
 
 
 class PointDict(TypedDict):
@@ -384,7 +383,9 @@ def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optio
     fig, ax = plt.subplots(figsize=(8, 8))
 
     # Make the plot square and centered
-    ax.set_aspect('equal')  # Set up grid circles and angle lines to mimic polar plot
+    ax.set_aspect('equal')
+
+    # Set up grid circles and angle lines to mimic polar plot
     max_r = 0
     for curve in curves:
         # Handle NaN values properly by using nanmax
@@ -399,7 +400,9 @@ def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optio
     if max_r == 0:
         max_r = 5
 
-    max_r = max_r + 1  # Add some padding# Draw grid circles and add radial labels
+    max_r = max_r + 1  # Add some padding
+
+    # Draw grid circles and add radial labels
     radial_values = np.linspace(0, max_r, 6)[1:]  # Skip 0
     for i, r in enumerate(radial_values):
         circle = plt.Circle((0, 0), r, fill=False, color='gray', alpha=0.3, linewidth=0.5)
@@ -407,12 +410,16 @@ def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optio
 
         # Add radial labels along the positive x-axis
         if r > 0:
-            ax.text(r, 0.1, f'{r:.1f}', ha='center', va='bottom', fontsize=9, color='gray')  # Draw angle lines for the main directions only
+            ax.text(r, 0.1, f'{r:.1f}', ha='center', va='bottom', fontsize=9, color='gray')
+
+    # Draw angle lines for the main directions only
     main_angles = [0, np.pi / 2, np.pi, 3 * np.pi / 2]  # 0°, 90°, 180°, 270°
     for angle in main_angles:
         x_line = [0, max_r * np.cos(angle)]
         y_line = [0, max_r * np.sin(angle)]
-        ax.plot(x_line, y_line, color='gray', alpha=0.5, linewidth=0.8)  # Add theta tick labels at the cardinal directions
+        ax.plot(x_line, y_line, color='gray', alpha=0.5, linewidth=0.8)
+
+    # Add theta tick labels at the cardinal directions
     label_radius = max_r + 0.3  # Position labels slightly outside the grid
     theta_labels = [(0, label_radius * np.cos(0), label_radius * np.sin(0), '0'),
                     (np.pi / 2, label_radius * np.cos(np.pi / 2), label_radius * np.sin(np.pi / 2), '$\\frac{\\pi}{2}$'),
@@ -435,7 +442,9 @@ def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optio
         r = curve['r']
         line_color = curve.get('color', 'blue')
         linestyle = curve.get('linestyle', '-')
-        label = curve.get('label', None)  # Convert polar to cartesian coordinates
+        label = curve.get('label', None)
+
+        # Convert polar to cartesian coordinates
         x = r * np.cos(theta)
         y = r * np.sin(theta)
 
@@ -466,9 +475,7 @@ def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optio
             else:
                 # Plot the entire curve normally
                 ax.plot(x_valid, y_valid, color=line_color, linestyle=linestyle, label=label, linewidth=1.5)
-        else:
-            # All values are NaN, skip plotting
-            pass
+        # (if all values are NaN, nothing is drawn)
 
         # Plot points if specified
         points = curve.get('points', [])
@@ -499,7 +506,9 @@ def plot_polar_cartesian(title: str, curves: list[PolarCurveDict], limits: Optio
         ax.set_ylim(-max_r, max_r)
 
     # Add origin marker
-    ax.plot(0, 0, 'ko', markersize=3)  # Add title and legend
+    ax.plot(0, 0, 'ko', markersize=3)
+
+    # Add title and legend
     # Center the title at the top with enough space to avoid π/2 label
     plt.suptitle(title, x=0.5, y=0.95, ha='center', va='top', fontsize=14, fontweight='bold')
     has_label = any(curve.get('label') for curve in curves)
@@ -532,7 +541,7 @@ def find_valid_theta_range(equation, max_r_threshold=None):
             r_test = equation(theta_test)
             if np.isfinite(r_test) and np.isreal(r_test):
                 r_values.append(abs(r_test))
-        except:
+        except Exception:
             continue
 
     # Auto-detect threshold if not provided
@@ -553,7 +562,7 @@ def find_valid_theta_range(equation, max_r_threshold=None):
             # Check if r is finite, real, and reasonable
             if (np.isfinite(r_test) and np.isreal(r_test) and abs(r_test) < max_r_threshold):
                 valid_indices.append(i)
-        except:
+        except Exception:
             continue
 
     if len(valid_indices) == 0:
@@ -564,7 +573,6 @@ def find_valid_theta_range(equation, max_r_threshold=None):
     segments = []
     if len(valid_indices) > 0:
         start_idx = valid_indices[0]
-        current_segment = [start_idx]
 
         for i in range(1, len(valid_indices)):
             # If there's a gap larger than 5 indices (about 0.5 degrees)
@@ -646,7 +654,7 @@ def plot_polar_equation(title: str,
                 theta_range = find_valid_theta_range(equation)
             else:
                 theta_range = (0, 2 * np.pi)
-        except:
+        except Exception:
             theta_range = (0, 2 * np.pi)
 
     # Generate theta values
@@ -682,8 +690,11 @@ def plot_polar_equation(title: str,
         'color': kwargs.get('color', 'blue'),
         'linestyle': kwargs.get('linestyle', '-'),
         'label': kwargs.get('label', None)
-    }  # Add vertices if requested
-    if show_vertices:  # Find vertices of the equation using the same theta range
+    }
+
+    # Add vertices if requested
+    if show_vertices:
+        # Find vertices of the equation using the same theta range
         vertices = find_polar_vertices(equation, theta_range, n_points, min_vertex_distance)
 
         vertex_points = []
@@ -710,7 +721,9 @@ def plot_polar_equation(title: str,
                 vertex_points.append(point)
                 marked_cartesian_set.add(cart_tuple)
 
-        curve['points'] = vertex_points  # Print vertices information (but filter to only show unique cartesian points)
+        curve['points'] = vertex_points
+
+        # Print vertices information (but filter to only show unique cartesian points)
         unique_vertices = []
         seen_cartesian = set()
         for theta_v, r_v in vertices:
@@ -722,8 +735,9 @@ def plot_polar_equation(title: str,
         print(f"Found {len(unique_vertices)} vertices:")
         for i, (theta_v, r_v) in enumerate(unique_vertices):
             r_v_rounded = round(r_v, 2)
-            print(f"Vertex {i+1}: θ = {get_pi_fraction_string(theta_v)}, r = {r_v_rounded}"
-                 )  # Plot the polar curve using cartesian coordinates
+            print(f"Vertex {i+1}: θ = {get_pi_fraction_string(theta_v)}, r = {r_v_rounded}")
+
+    # Plot the polar curve using cartesian coordinates
     plot_polar_cartesian(title, [curve], None)
 
 
@@ -983,10 +997,8 @@ def plot_hyperbola(h: float, k: float, a: float, b: float, orientation: str = "h
     # Determine plot range based on limits or default
     if limits:
         x_range = np.linspace(limits['x'][0], limits['x'][1], 1000)
-        y_range = np.linspace(limits['y'][0], limits['y'][1], 1000)
     else:
         x_range = np.linspace(-10, 10, 1000)
-        y_range = np.linspace(-10, 10, 1000)
 
     # Calculate foci distance: c² = a² + b²
     c = math.sqrt(a**2 + b**2)

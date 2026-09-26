@@ -1,6 +1,3 @@
-from typing import Literal
-
-
 def get_sum_of_angles_in_polygon(num_sides: int, symbolic=False) -> float:
     """
     Get the sum of the angles in a polygon with a given number of sides.

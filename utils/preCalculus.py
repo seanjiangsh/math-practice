@@ -130,8 +130,6 @@ def find_equivalent_polar_points(polar_point: Tuple[Union[float, sp.Expr], Union
     # Case 1: If angle_range is None, find closest points towards angle 0
     if angle_range is None:
         results = []
-        r, theta = polar_point
-        pi_val = sp.pi if symbolic else math.pi
 
         # Generate equivalent points by adding and subtracting multiples of pi
         k = 1
@@ -140,11 +138,11 @@ def find_equivalent_polar_points(polar_point: Tuple[Union[float, sp.Expr], Union
             new_r = -r if k % 2 == 1 else r
 
             # Add point with +k*pi
-            results.append((new_r, theta + k * pi_val))
+            results.append((new_r, theta + k * pi))
 
             # If we need more points, add point with -k*pi
             if len(results) < n_points:
-                results.append((new_r, theta - k * pi_val))
+                results.append((new_r, theta - k * pi))
 
             k += 1
 
@@ -157,12 +155,8 @@ def find_equivalent_polar_points(polar_point: Tuple[Union[float, sp.Expr], Union
     normalized_theta = normalize_angle(theta, symbolic)
 
     # Calculate distances to both bounds
-    if symbolic:
-        dist_to_min = abs(normalized_theta - min_angle)
-        dist_to_max = abs(normalized_theta - max_angle)
-    else:
-        dist_to_min = abs(normalized_theta - min_angle)
-        dist_to_max = abs(normalized_theta - max_angle)
+    dist_to_min = abs(normalized_theta - min_angle)
+    dist_to_max = abs(normalized_theta - max_angle)
 
     search_upward = dist_to_min <= dist_to_max
 

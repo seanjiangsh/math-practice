@@ -12,11 +12,12 @@ def get_prime_factors(num):
     return factors
 
 
-# Get input from the user
-num = int(input("Enter a number: "))
+if __name__ == "__main__":
+    # Get input from the user
+    num = int(input("Enter a number: "))
 
-# Get the prime factors
-prime_factors = get_prime_factors(num)
+    # Get the prime factors
+    prime_factors = get_prime_factors(num)
 
-# Print the prime factors
-print("Prime factors of", num, "are:", prime_factors)
+    # Print the prime factors
+    print("Prime factors of", num, "are:", prime_factors)

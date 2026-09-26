@@ -9,11 +9,12 @@ def calculate_gcf(nums):
     return num1
 
 
-numbers = []
-while True:
-    num = input("Enter a number (or 'stop' to finish): ")
-    if num == 'stop':
-        break
-    numbers.append(int(num))
+if __name__ == "__main__":
+    numbers = []
+    while True:
+        num = input("Enter a number (or 'stop' to finish): ")
+        if num == 'stop':
+            break
+        numbers.append(int(num))
 
-print("The G.C.F. is", calculate_gcf(numbers))
+    print("The G.C.F. is", calculate_gcf(numbers))

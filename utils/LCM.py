@@ -18,11 +18,12 @@ def calculate_lcm(nums):
     return num1
 
 
-numbers = []
-while True:
-    num = input("Enter a number (or 'stop' to finish): ")
-    if num == 'stop':
-        break
-    numbers.append(int(num))
+if __name__ == "__main__":
+    numbers = []
+    while True:
+        num = input("Enter a number (or 'stop' to finish): ")
+        if num == 'stop':
+            break
+        numbers.append(int(num))
 
-print("The L.C.M. is", calculate_lcm(numbers))
+    print("The L.C.M. is", calculate_lcm(numbers))
