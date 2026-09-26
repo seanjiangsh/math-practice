@@ -93,9 +93,19 @@ def plot_lines(title: str,
                ylabel: str = 'y',
                other_points: list[PointDict] = None,
                show_direction: bool = False,
-               num_arrows: int = 3):
-    plt.figure(figsize=(6, 6))
-    setup_plot(limits)
+               num_arrows: int = 3,
+               new_figure: bool = True,
+               setup_axes: bool = True,
+               show: bool = True,
+               figsize: tuple[float, float] = (6, 6)):
+    if new_figure:
+        plt.figure(figsize=figsize)
+
+    if setup_axes:
+        setup_plot(limits)
+    elif limits is not None:
+        plt.xlim(limits['x'])
+        plt.ylim(limits['y'])
 
     for line in lines:
         x = line['x']
@@ -199,7 +209,8 @@ def plot_lines(title: str,
     if has_label:
         plt.legend()
 
-    plt.show()
+    if show:
+        plt.show()
 
 
 def get_slope_intercept_points(slope: float, intercept=0):

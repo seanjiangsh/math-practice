@@ -68,6 +68,10 @@ def plot_basic_vectors(
     title: str = 'Basic Vectors',
     limits: Optional[PlotLimits] = None,
     tip_to_tail: bool = False,
+    new_figure: bool = True,
+    setup_axes: bool = True,
+    show: bool = True,
+    figsize: tuple[float, float] = (7, 7),
 ) -> dict[str, Vector]:
     """Plot named vectors from the origin or in tip-to-tail order and return endpoints."""
     if not vectors:
@@ -100,6 +104,9 @@ def plot_basic_vectors(
         else:
             effective_limits_3d = limits  # type: ignore[assignment]
 
+        if not new_figure:
+            raise ValueError('new_figure=False is not supported for 3D vector plots')
+
         fig = plt.figure(figsize=(8, 7))
         ax = fig.add_subplot(111, projection='3d')
 
@@ -131,13 +138,16 @@ def plot_basic_vectors(
         ax.set_zlabel('z')
         ax.set_title(title)
         ax.grid(True)
-        plt.show()
+        if show:
+            plt.show()
 
         return result_endpoints_3d
 
     vectors_2d = vectors  # type: ignore[assignment]
 
-    plt.figure(figsize=(7, 7))
+    if new_figure:
+        plt.figure(figsize=figsize)
+
     if limits is not None:
         effective_limits = limits
     elif tip_to_tail:
@@ -145,7 +155,11 @@ def plot_basic_vectors(
     else:
         effective_limits = _auto_limits(vectors_2d)
 
-    setup_plot(effective_limits)
+    if setup_axes:
+        setup_plot(effective_limits)
+    elif limits is not None:
+        plt.xlim(limits['x'])
+        plt.ylim(limits['y'])
 
     color_cycle = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:brown', 'tab:pink']
     result_endpoints: dict[str, Vector2D] = {}
@@ -185,6 +199,7 @@ def plot_basic_vectors(
     plt.ylabel('y', rotation=0)
     plt.title(title)
     plt.gca().set_aspect('equal', adjustable='box')
-    plt.show()
+    if show:
+        plt.show()
 
     return result_endpoints
